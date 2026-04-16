@@ -80,7 +80,7 @@ TDD-Framework.md                        # Existing canonical reference — uncha
 
 ---
 
-## Phase 0 — tdd-setup Skill
+## Phase 0 — tdd-setup Skill ([#1](https://github.com/mrlarson2007/copilot-tdd-harness/issues/1))
 
 ### Purpose
 
@@ -156,7 +156,7 @@ Detection heuristics:
 
 ---
 
-## Phase 1 — Always-On Rules & Project Config
+## Phase 1 — Always-On Rules & Project Config ([#2](https://github.com/mrlarson2007/copilot-tdd-harness/issues/2))
 
 ### tdd-constitution.instructions.md
 
@@ -221,7 +221,7 @@ FINAL REMINDER: If you are about to write production code, ask yourself: "Is the
 
 ---
 
-## Phase 2 — tdd-workflow Skill
+## Phase 2 — tdd-workflow Skill ([#3](https://github.com/mrlarson2007/copilot-tdd-harness/issues/3))
 
 Loaded on-demand when the model needs TDD guidance. References TDD-Framework.md.
 
@@ -243,7 +243,7 @@ The skill body references [TDD-Framework.md](../../TDD-Framework.md) and distill
 
 ---
 
-## Phase 3 — Phase Agents
+## Phase 3 — Phase Agents ([#4](https://github.com/mrlarson2007/copilot-tdd-harness/issues/4))
 
 Four agents implement the handoff chain: `tdd-red` → `tdd-green` → `tdd-commit` → `tdd-refactor` → `tdd-commit` (or back to `tdd-red`).
 
@@ -407,7 +407,7 @@ APPROACH: <specific change>
 
 ---
 
-## Phase 4 — Lifecycle Hooks
+## Phase 4 — Lifecycle Hooks ([#5](https://github.com/mrlarson2007/copilot-tdd-harness/issues/5))
 
 ### tdd-enforcement.json
 
@@ -506,7 +506,7 @@ or when blocking:
 
 ---
 
-## Phase 5 — Prompt Files
+## Phase 5 — Prompt Files ([#6](https://github.com/mrlarson2007/copilot-tdd-harness/issues/6))
 
 ### tdd-start.prompt.md
 
@@ -557,7 +557,7 @@ Invoked as `/tdd-status` from Copilot Chat.
 
 ---
 
-## Phase 6 — Install Scripts
+## Phase 6 — Install Scripts ([#7](https://github.com/mrlarson2007/copilot-tdd-harness/issues/7))
 
 ### install-tdd-harness.ps1 / install-tdd-harness.sh
 
@@ -582,6 +582,43 @@ Auto-detection priority:
 5. `pom.xml` → `mvn test`
 6. `build.gradle` → `./gradlew test`
 7. None detected → leave `testCommand` blank, prompt user to set it
+
+---
+
+## Phase 7 — Agent Plugin Packaging ([#9](https://github.com/mrlarson2007/copilot-tdd-harness/issues/9))
+
+Package the harness as a VS Code Agent Plugin so it installs with a single command and is discoverable in the `@agentPlugins` Extensions view. The plugin format is shared by VS Code, GitHub Copilot CLI, and Claude Code.
+
+### plugin.json (repo root)
+
+```json
+{
+  "name": "copilot-tdd-harness",
+  "description": "Enforces the RED→GREEN→COMMIT→REFACTOR TDD workflow using hooks, agents, skills, and prompt files.",
+  "version": "0.1.0",
+  "author": { "name": "mrlarson2007" },
+  "skills": ".github/skills/",
+  "agents": ".github/agents/",
+  "hooks": ".github/hooks/tdd-enforcement.json"
+}
+```
+
+### Distribution Channels
+
+| Channel | How | Audience |
+|---------|-----|---------|
+| Git URL install | `Chat: Install Plugin From Source` → `https://github.com/mrlarson2007/copilot-tdd-harness` | Any VS Code user |
+| GitHub Copilot CLI | `gh copilot plugin install https://github.com/mrlarson2007/copilot-tdd-harness` | CLI users |
+| `copilot-plugins` marketplace | Submit `marketplace.json` to `github/copilot-plugins` | Discoverable via `@agentPlugins` in Extensions view |
+| NuGet content package | `dotnet add package copilot-tdd-harness` drops files into `.github/` via content files | .NET teams |
+
+### marketplace.json Entry
+
+Added to the `github/copilot-plugins` or `github/awesome-copilot` repo to make the plugin discoverable under `@agentPlugins` in the VS Code Extensions view.
+
+### NuGet Content Package
+
+`copilot-tdd-harness.nuspec` packages all `.github/**` skill/agent/hook files as NuGet content files. On `dotnet add package copilot-tdd-harness`, these are restored into the target project's `.github/` directory. The project can then register the path via `chat.pluginLocations` in VS Code settings.
 
 ---
 
@@ -610,7 +647,7 @@ Auto-detection priority:
 
 ---
 
-## Verification Steps
+## Verification Steps ([#8](https://github.com/mrlarson2007/copilot-tdd-harness/issues/8))
 
 After installation, verify the harness is working:
 
