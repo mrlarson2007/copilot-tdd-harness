@@ -1,0 +1,7 @@
+{
+  "$schema": "./tdd-config.schema.json",
+  "testCommand": "echo \"No test suite is configured yet\"",
+  "testWorkingDir": ".",
+  "testFilePattern": "**/*test*",
+  "hookMode": "both"
+}
