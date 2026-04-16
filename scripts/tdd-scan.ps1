@@ -93,8 +93,8 @@ foreach ($dirName in @('tests', 'test', '__tests__', 'spec')) {
         }
 }
 
-$testFiles = $testFiles | Sort-Object -Property FullName -Unique
-$sampleFiles = $testFiles | Select-Object -First 20
+$testFiles = @($testFiles | Sort-Object -Property FullName -Unique)
+$sampleFiles = @($testFiles | Select-Object -First 20)
 
 $patternCounts = @{
     'WhenCondition_ShouldExpectedOutcome' = 0
