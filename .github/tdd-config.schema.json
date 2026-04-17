@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "TDD harness configuration for this project",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "testCommand": {
+      "type": "string",
+      "description": "Command to run all tests",
+      "examples": ["dotnet test", "npm test", "pytest", "./gradlew test"]
+    },
+    "testWorkingDir": {
+      "type": "string",
+      "description": "Working directory for test command",
+      "default": "."
+    },
+    "testFilePattern": {
+      "type": "string",
+      "description": "Glob pattern for test files",
+      "examples": ["**/*Tests.cs", "**/*.test.ts", "**/test_*.py"]
+    },
+    "sourceFilePattern": {
+      "type": "string",
+      "description": "Glob pattern for production source files"
+    },
+    "hookMode": {
+      "type": "string",
+      "enum": ["soft", "hard", "both"],
+      "description": "soft=PostToolUse feedback only; hard=Stop hook blocks; both=both",
+      "default": "both"
+    }
+  },
+  "required": ["testCommand"]
+}
