@@ -5,6 +5,9 @@ param(
 $ErrorActionPreference = "Stop"
 Set-Location -Path $Path
 
+# The issue plan specifies scanning the first 20 test files for naming patterns.
+$sampleLimit = 20
+
 function Find-Files {
     param(
         [string[]]$Patterns
@@ -95,7 +98,7 @@ $testDir = $null
 if ($existingTestCount -gt 0) {
     $relative = [System.IO.Path]::GetRelativePath((Get-Location).Path, $testFiles[0].DirectoryName).Replace('\', '/')
     if ($relative -eq ".") {
-        $testDir = "./"
+        $testDir = "."
     }
     else {
         $testDir = "$relative/"
@@ -110,7 +113,7 @@ else {
     }
 }
 
-$sampleFiles = @($testFiles | Select-Object -First 20)
+$sampleFiles = @($testFiles | Select-Object -First $sampleLimit)
 $namingPattern = $null
 if ($sampleFiles.Count -gt 0) {
     if (Test-ContentMatch -Files $sampleFiles -Pattern 'When[A-Za-z0-9_]+_Should[A-Za-z0-9_]+') {

@@ -5,6 +5,9 @@ set -euo pipefail
 scan_root="${1:-.}"
 cd "$scan_root"
 
+# The issue plan specifies scanning the first 20 test files for naming patterns.
+sample_limit=20
+
 json_string() {
   local value="${1//\\/\\\\}"
   value="${value//\"/\\\"}"
@@ -90,6 +93,7 @@ if [ "$existing_test_count" -gt 0 ]; then
   test_dir="$(dirname "${test_files[0]}")"
   test_dir="$(trim_path "$test_dir")"
   case "$test_dir" in
+    .) test_dir="." ;;
     */) ;;
     *) test_dir="${test_dir}/" ;;
   esac
@@ -103,7 +107,7 @@ else
 fi
 
 naming_pattern=""
-sample_files=("${test_files[@]:0:20}")
+sample_files=("${test_files[@]:0:$sample_limit}")
 if [ "${#sample_files[@]}" -gt 0 ]; then
   if search_in_files 'When[A-Za-z0-9_]+_Should[A-Za-z0-9_]+' "${sample_files[@]}"; then
     naming_pattern="WhenCondition_ShouldExpectedOutcome"
