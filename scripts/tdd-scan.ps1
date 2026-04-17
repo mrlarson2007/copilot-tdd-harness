@@ -21,7 +21,7 @@ function Find-Files {
     }
 }
 
-function Get-FirstMatchValue {
+function Get-ValueIfFileExists {
     param(
         [string[]]$Patterns,
         [string]$Value
@@ -52,7 +52,7 @@ function Test-ContentMatch {
 $packageJson = if (Test-Path "package.json") { Get-Content "package.json" -Raw } else { $null }
 
 $testRunner = $null
-if (Get-FirstMatchValue -Patterns @("*.sln", "*.csproj") -Value "dotnet test") {
+if (Get-ValueIfFileExists -Patterns @("*.sln", "*.csproj") -Value "dotnet test") {
     $testRunner = "dotnet test"
 }
 elseif ($packageJson -and $packageJson -match '"vitest"') {
@@ -61,13 +61,13 @@ elseif ($packageJson -and $packageJson -match '"vitest"') {
 elseif ($packageJson -and $packageJson -match '"jest"') {
     $testRunner = "npm test"
 }
-elseif (Get-FirstMatchValue -Patterns @("pyproject.toml", "requirements.txt", "setup.py") -Value "pytest") {
+elseif (Get-ValueIfFileExists -Patterns @("pyproject.toml", "requirements.txt", "setup.py") -Value "pytest") {
     $testRunner = "pytest"
 }
 elseif (Test-Path "pom.xml") {
     $testRunner = "mvn test"
 }
-elseif (Get-FirstMatchValue -Patterns @("build.gradle", "build.gradle.kts") -Value "./gradlew test") {
+elseif (Get-ValueIfFileExists -Patterns @("build.gradle", "build.gradle.kts") -Value "./gradlew test") {
     $testRunner = "./gradlew test"
 }
 

@@ -3,7 +3,8 @@ name: tdd-setup
 description: >
   Configure TDD harness for this project. Scans existing code to detect
   test runner, framework, and naming patterns, then interviews you to fill
-  any gaps. Generates tdd-config.json and tdd-patterns.instructions.md.
+  any gaps. Generates .github/tdd-config.json and
+  .github/instructions/tdd-patterns.instructions.md.
 user-invocable: true
 ---
 

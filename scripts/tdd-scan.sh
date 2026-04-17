@@ -44,7 +44,7 @@ collect_test_files() {
   \) | sort
 }
 
-has_path() {
+has_matching_file() {
   find . "$@" -print -quit 2>/dev/null | grep -q .
 }
 
@@ -61,18 +61,23 @@ search_in_files() {
   return 1
 }
 
+package_json=""
+if [ -f package.json ]; then
+  package_json="$(cat package.json)"
+fi
+
 test_runner=""
-if has_path -maxdepth 2 -type f \( -name '*.sln' -o -name '*.csproj' \); then
+if has_matching_file -maxdepth 2 -type f \( -name '*.sln' -o -name '*.csproj' \); then
   test_runner="dotnet test"
-elif [ -f package.json ] && grep -Eq '"vitest"' package.json; then
+elif [ -n "$package_json" ] && grep -Eq '"vitest"' <<<"$package_json"; then
   test_runner="npx vitest"
-elif [ -f package.json ] && grep -Eq '"jest"' package.json; then
+elif [ -n "$package_json" ] && grep -Eq '"jest"' <<<"$package_json"; then
   test_runner="npm test"
-elif has_path -maxdepth 2 -type f \( -name 'pyproject.toml' -o -name 'requirements.txt' -o -name 'setup.py' \); then
+elif has_matching_file -maxdepth 2 -type f \( -name 'pyproject.toml' -o -name 'requirements.txt' -o -name 'setup.py' \); then
   test_runner="pytest"
 elif [ -f pom.xml ]; then
   test_runner="mvn test"
-elif has_path -maxdepth 2 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \); then
+elif has_matching_file -maxdepth 2 -type f \( -name 'build.gradle' -o -name 'build.gradle.kts' \); then
   test_runner="./gradlew test"
 fi
 
