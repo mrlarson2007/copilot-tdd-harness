@@ -1,23 +1,30 @@
----
-applyTo: "**/*.{cs,csx}"
----
+# Project TDD Patterns
 
-# TDD Patterns (Dotnet)
+Use these .NET testing conventions for this project.
 
-- Test project location: `{{TEST_DIR}}`
-- Test naming pattern: `{{NAMING_PATTERN}}`
-- Assertion library: `{{ASSERTION_LIB}}`
-- Mocking approach: `{{MOCK_LIB}}`
+## Test Layout
 
-## Preferred Test Style
-- Use Arrange / Act / Assert structure.
-- Keep one behavior assertion focus per test.
-- Prefer expressive assertions from `{{ASSERTION_LIB}}`.
+- Test directory: `{{TEST_DIR}}`
+- Test file pattern: `{{TEST_FILE_PATTERN}}`
+- Source file pattern: `{{SOURCE_FILE_PATTERN}}`
 
-## Naming Guidance
-- Follow `{{NAMING_PATTERN}}` for all new tests.
-- Name test classes after the target type under test.
+## Naming
 
-## Mocking Guidance
-- Use `{{MOCK_LIB}}` for dependency seams and external boundaries.
-- Avoid mocking pure value objects and deterministic helpers.
+- Preferred test naming pattern: `{{NAMING_PATTERN}}`
+- Keep test names behavior-focused and explicit about the expected outcome.
+
+## Assertions
+
+- Preferred assertion library: `{{ASSERTION_LIB}}`
+- Prefer readable, intention-revealing assertions over generic boolean checks.
+
+## Mocking
+
+- Preferred mocking approach: `{{MOCK_LIB}}`
+- Mock only external collaborators. Keep domain logic tested without unnecessary mocks.
+
+## General Guidance
+
+- Follow Arrange / Act / Assert structure.
+- Keep one behavior per test.
+- Add edge-case tests before broad refactors.

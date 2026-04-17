@@ -1,194 +1,214 @@
-#!/usr/bin/env pwsh
-Set-StrictMode -Version Latest
-$ErrorActionPreference = 'Stop'
+param(
+    [string]$Path = "."
+)
 
-function Find-First {
+$ErrorActionPreference = "Stop"
+Set-Location -Path $Path
+
+# The issue plan specifies scanning the first 20 test files for naming patterns.
+$sampleLimit = 20
+
+function Find-Files {
     param(
-        [Parameter(Mandatory = $true)]
         [string[]]$Patterns
     )
 
-    foreach ($pattern in $Patterns) {
-        $match = Get-ChildItem -Path . -Filter $pattern -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($null -ne $match) {
-            return $match
+    Get-ChildItem -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+        $name = $_.Name
+        foreach ($pattern in $Patterns) {
+            if ($name -like $pattern) {
+                return $true
+            }
         }
+        return $false
+    }
+}
+
+function Get-ValueIfFileExists {
+    param(
+        [string[]]$Patterns,
+        [string]$Value
+    )
+
+    if (Find-Files -Patterns $Patterns | Select-Object -First 1) {
+        return $Value
     }
 
     return $null
 }
 
-function Get-TestRunner {
-    if (Find-First -Patterns @('*.sln', '*.csproj')) {
-        return 'dotnet test'
-    }
+function Test-ContentMatch {
+    param(
+        [System.IO.FileInfo[]]$Files,
+        [string]$Pattern
+    )
 
-    $packageJson = Find-First -Patterns @('package.json')
-    if ($packageJson) {
-        try {
-            $pkg = Get-Content -Raw -Path $packageJson.FullName | ConvertFrom-Json
-            $deps = @{}
-            foreach ($section in @('dependencies', 'devDependencies', 'peerDependencies')) {
-                if ($pkg.$section) {
-                    $pkg.$section.PSObject.Properties | ForEach-Object { $deps[$_.Name] = $_.Value }
-                }
-            }
-            if ($deps.ContainsKey('vitest')) {
-                return 'npx vitest run'
-            }
-            if ($deps.ContainsKey('jest')) {
-                return 'npm test'
-            }
-            if ($pkg.scripts -and $pkg.scripts.test) {
-                return 'npm test'
-            }
-        } catch {
-            return 'npm test'
-        }
-
-        return 'npm test'
-    }
-
-    if (Find-First -Patterns @('pyproject.toml', 'requirements.txt')) {
-        return 'pytest'
-    }
-
-    if (Find-First -Patterns @('pom.xml')) {
-        return 'mvn test'
-    }
-
-    if (Find-First -Patterns @('build.gradle', 'build.gradle.kts')) {
-        return './gradlew test'
-    }
-
-    return $null
-}
-
-function Get-TestDir {
-    foreach ($name in @('tests', 'test', '__tests__', 'spec')) {
-        $dir = Get-ChildItem -Path . -Directory -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $name } | Select-Object -First 1
-        if ($dir) {
-            $relative = [System.IO.Path]::GetRelativePath((Resolve-Path .).Path, $dir.FullName)
-            if ([string]::IsNullOrWhiteSpace($relative) -or $relative -eq '.') {
-                return './'
-            }
-            return ($relative -replace '\\', '/') + '/'
+    foreach ($file in $Files) {
+        if (Select-String -Path $file.FullName -Pattern $Pattern -Quiet -ErrorAction SilentlyContinue) {
+            return $true
         }
     }
 
-    return $null
+    return $false
 }
 
-$testPatterns = @('*test*.cs', '*test*.js', '*test*.ts', 'test_*.py', '*Test.java', '*Tests.java', '*Spec.java')
-$testFiles = @()
-foreach ($pattern in $testPatterns) {
-    $testFiles += Get-ChildItem -Path . -Recurse -File -Filter $pattern -ErrorAction SilentlyContinue
+$packageJson = if (Test-Path "package.json") { Get-Content "package.json" -Raw } else { $null }
+
+$testRunner = $null
+if (Get-ValueIfFileExists -Patterns @("*.sln", "*.csproj") -Value "dotnet test") {
+    $testRunner = "dotnet test"
+}
+elseif ($packageJson -and $packageJson -match '"vitest"') {
+    $testRunner = "npx vitest"
+}
+elseif ($packageJson -and $packageJson -match '"jest"') {
+    $testRunner = "npm test"
+}
+elseif (Get-ValueIfFileExists -Patterns @("pyproject.toml", "requirements.txt", "setup.py") -Value "pytest") {
+    $testRunner = "pytest"
+}
+elseif (Test-Path "pom.xml") {
+    $testRunner = "mvn test"
+}
+elseif (Get-ValueIfFileExists -Patterns @("build.gradle", "build.gradle.kts") -Value "./gradlew test") {
+    $testRunner = "./gradlew test"
 }
 
-foreach ($dirName in @('tests', 'test', '__tests__', 'spec')) {
-    $testFiles += Get-ChildItem -Path . -Recurse -File -ErrorAction SilentlyContinue |
-        Where-Object {
-            $_.FullName -match "[\\/]$dirName[\\/]" -and
-            @('.cs', '.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.kt') -contains $_.Extension.ToLowerInvariant()
-        }
-}
+$testFiles = Find-Files -Patterns @(
+    "*Tests.cs",
+    "*Test.cs",
+    "*.test.js",
+    "*.test.jsx",
+    "*.test.ts",
+    "*.test.tsx",
+    "*.spec.js",
+    "*.spec.jsx",
+    "*.spec.ts",
+    "*.spec.tsx",
+    "test_*.py",
+    "*_test.py",
+    "*Test.java",
+    "*Tests.java"
+) | Sort-Object FullName
 
-$testFiles = @($testFiles | Sort-Object -Property FullName -Unique)
-$sampleFiles = @($testFiles | Select-Object -First 20)
+$existingTestCount = @($testFiles).Count
+$testWorkingDir = "."
+$testDir = $null
 
-$patternCounts = @{
-    'WhenCondition_ShouldExpectedOutcome' = 0
-    'Given_When_Then' = 0
-    'test_function_style' = 0
-    'it_should_style' = 0
-}
-
-$assertionSignatures = @{
-    'Shouldly' = @('\bShould\w*\(')
-    'FluentAssertions' = @('\.Should\(\)')
-    'xUnit/NUnit assertions' = @('\bAssert\.[A-Za-z]+\(')
-    'Jest expect' = @('\bexpect\s*\(')
-    'Chai' = @('\bchai\b', '\bexpect\s*\(')
-    'pytest/assert' = @('\bassert\s+')
-    'AssertJ' = @('\bassertThat\s*\(')
-    'JUnit assertions' = @('\bAssertions\.[A-Za-z]+\(')
-}
-
-$mockSignatures = @{
-    'Moq' = @('\bMoq\b', '\bMock<')
-    'NSubstitute' = @('\bNSubstitute\b', '\bSubstitute\.For')
-    'Jest mocks' = @('\bjest\.mock\(', '\bjest\.fn\(')
-    'Sinon' = @('\bsinon\b')
-    'unittest.mock' = @('\bunittest\.mock\b', '\bmock\.[A-Za-z]+')
-    'Mockito' = @('\bMockito\b', '\bmock\s*\(')
-}
-
-$assertionHits = @{}
-$mockHits = @{}
-foreach ($k in $assertionSignatures.Keys) { $assertionHits[$k] = 0 }
-foreach ($k in $mockSignatures.Keys) { $mockHits[$k] = 0 }
-
-foreach ($file in $sampleFiles) {
-    $text = Get-Content -Raw -Path $file.FullName -ErrorAction SilentlyContinue
-    if (-not $text) { continue }
-
-    $patternCounts['WhenCondition_ShouldExpectedOutcome'] += ([regex]::Matches($text, '\bWhen[A-Za-z0-9_]*_Should[A-Za-z0-9_]*\b')).Count
-    $patternCounts['Given_When_Then'] += ([regex]::Matches($text, '\bGiven[A-Za-z0-9_]*_When[A-Za-z0-9_]*_Then[A-Za-z0-9_]*\b')).Count
-    $patternCounts['test_function_style'] += ([regex]::Matches($text, '\bdef\s+test_[A-Za-z0-9_]*\s*\(')).Count
-    $patternCounts['it_should_style'] += ([regex]::Matches($text, '\bit\s*\(\s*["'']should\b', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)).Count
-
-    foreach ($lib in $assertionSignatures.Keys) {
-        foreach ($sig in $assertionSignatures[$lib]) {
-            $assertionHits[$lib] += ([regex]::Matches($text, $sig)).Count
-        }
+if ($existingTestCount -gt 0) {
+    $relative = [System.IO.Path]::GetRelativePath((Get-Location).Path, $testFiles[0].DirectoryName).Replace('\', '/')
+    if ($relative -eq ".") {
+        $testDir = "."
     }
-
-    foreach ($lib in $mockSignatures.Keys) {
-        foreach ($sig in $mockSignatures[$lib]) {
-            $mockHits[$lib] += ([regex]::Matches($text, $sig)).Count
+    else {
+        $testDir = "$relative/"
+    }
+}
+else {
+    foreach ($candidate in @("tests", "test", "__tests__", "spec", "src/test")) {
+        if (Test-Path $candidate) {
+            $testDir = "$candidate/"
+            break
         }
     }
 }
 
+$sampleFiles = @($testFiles | Select-Object -First $sampleLimit)
 $namingPattern = $null
-if (($patternCounts.Values | Measure-Object -Maximum).Maximum -gt 0) {
-    $namingPattern = ($patternCounts.GetEnumerator() | Sort-Object -Property Value -Descending | Select-Object -First 1).Key
+if ($sampleFiles.Count -gt 0) {
+    if (Test-ContentMatch -Files $sampleFiles -Pattern 'When[A-Za-z0-9_]+_Should[A-Za-z0-9_]+') {
+        $namingPattern = "WhenCondition_ShouldExpectedOutcome"
+    }
+    elseif (Test-ContentMatch -Files $sampleFiles -Pattern 'def test_[A-Za-z0-9_]+') {
+        $namingPattern = "test_function_name"
+    }
+    elseif (Test-ContentMatch -Files $sampleFiles -Pattern '\b(it|test)\s*\(') {
+        $namingPattern = 'test("behavior description")'
+    }
+    elseif (Test-ContentMatch -Files $sampleFiles -Pattern '@Test|void [A-Za-z0-9_]+Test\s*\(') {
+        $namingPattern = "shouldExpectedOutcomeWhenCondition"
+    }
 }
+
+$scanSources = Find-Files -Patterns @(
+    "*.cs",
+    "*.csproj",
+    "package.json",
+    "*.js",
+    "*.jsx",
+    "*.ts",
+    "*.tsx",
+    "pyproject.toml",
+    "requirements.txt",
+    "*.py",
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+    "*.java"
+) | Sort-Object FullName
 
 $assertionLib = $null
-if (($assertionHits.Values | Measure-Object -Maximum).Maximum -gt 0) {
-    $assertionLib = ($assertionHits.GetEnumerator() | Sort-Object -Property Value -Descending | Select-Object -First 1).Key
+if (Test-ContentMatch -Files $scanSources -Pattern 'Shouldly') {
+    $assertionLib = "Shouldly"
+}
+elseif (Test-ContentMatch -Files $scanSources -Pattern 'FluentAssertions') {
+    $assertionLib = "FluentAssertions"
+}
+elseif (Test-ContentMatch -Files $scanSources -Pattern '@testing-library|expect\(') {
+    if ($testRunner -eq "npx vitest") {
+        $assertionLib = "Vitest"
+    }
+    elseif ($testRunner -eq "npm test") {
+        $assertionLib = "Jest"
+    }
+}
+elseif (Test-ContentMatch -Files $scanSources -Pattern 'pytest') {
+    $assertionLib = "pytest"
+}
+elseif (Test-ContentMatch -Files $scanSources -Pattern 'assertj|AssertJ|assertThat\(') {
+    $assertionLib = "AssertJ"
+}
+elseif (Test-ContentMatch -Files $scanSources -Pattern 'hamcrest|MatcherAssert') {
+    $assertionLib = "Hamcrest"
+}
+elseif (Test-ContentMatch -Files $scanSources -Pattern 'Assertions\.') {
+    $assertionLib = "JUnit"
 }
 
 $mockLib = $null
-if (($mockHits.Values | Measure-Object -Maximum).Maximum -gt 0) {
-    $mockLib = ($mockHits.GetEnumerator() | Sort-Object -Property Value -Descending | Select-Object -First 1).Key
+if (Test-ContentMatch -Files $scanSources -Pattern '\bMoq\b') {
+    $mockLib = "Moq"
+}
+elseif (Test-ContentMatch -Files $scanSources -Pattern 'NSubstitute') {
+    $mockLib = "NSubstitute"
+}
+elseif (Test-ContentMatch -Files $scanSources -Pattern 'sinon') {
+    $mockLib = "Sinon"
+}
+elseif (Test-ContentMatch -Files $scanSources -Pattern 'unittest\.mock|from mock import|pytest-mock') {
+    $mockLib = "unittest.mock"
+}
+elseif (Test-ContentMatch -Files $scanSources -Pattern 'Mockito|mockito') {
+    $mockLib = "Mockito"
+}
+elseif (Test-ContentMatch -Files $scanSources -Pattern 'jest\.fn|vi\.fn|vi\.mock|jest\.mock') {
+    $mockLib = "Built-in test doubles"
 }
 
-$existingProject = $false
-if (Find-First -Patterns @('*.sln', '*.csproj', 'package.json', 'pyproject.toml', 'requirements.txt', 'pom.xml', 'build.gradle', 'build.gradle.kts')) {
-    $existingProject = $true
-}
-if (-not $existingProject -and $testFiles.Count -gt 0) {
-    $existingProject = $true
-}
+$detected = @()
+if ($null -ne $testRunner) { $detected += "testRunner" }
+if ($null -ne $testDir) { $detected += "testDir" }
+if ($null -ne $namingPattern) { $detected += "namingPattern" }
+if ($null -ne $assertionLib) { $detected += "assertionLib" }
+if ($null -ne $mockLib) { $detected += "mockLib" }
 
-$result = [ordered]@{
-    mode = if ($existingProject) { 'existing-project' } else { 'new-project' }
-    testRunner = Get-TestRunner
-    testWorkingDir = '.'
-    testDir = Get-TestDir
+[ordered]@{
+    testRunner = $testRunner
+    testWorkingDir = $testWorkingDir
+    testDir = $testDir
     namingPattern = $namingPattern
     assertionLib = $assertionLib
     mockLib = $mockLib
-    existingTestCount = $testFiles.Count
-    detected = @()
-}
-
-foreach ($field in @('testRunner', 'testWorkingDir', 'testDir', 'namingPattern', 'assertionLib', 'mockLib')) {
-    if ($result[$field]) {
-        $result.detected += $field
-    }
-}
-
-$result | ConvertTo-Json -Depth 4
+    existingTestCount = $existingTestCount
+    detected = $detected
+} | ConvertTo-Json -Depth 3

@@ -1,23 +1,30 @@
----
-applyTo: "**/*.{py}"
----
+# Project TDD Patterns
 
-# TDD Patterns (Python)
+Use these Python testing conventions for this project.
+
+## Test Layout
 
 - Test directory: `{{TEST_DIR}}`
-- Test naming pattern: `{{NAMING_PATTERN}}`
-- Assertion style/library: `{{ASSERTION_LIB}}`
-- Mocking approach: `{{MOCK_LIB}}`
+- Test file pattern: `{{TEST_FILE_PATTERN}}`
+- Source file pattern: `{{SOURCE_FILE_PATTERN}}`
 
-## Preferred Test Style
-- Use arrange-act-assert structure.
-- Keep one behavior per test.
-- Prefer readable assertion intent over incidental details.
+## Naming
 
-## Naming Guidance
-- Follow `{{NAMING_PATTERN}}`.
-- Use descriptive names reflecting behavior and expected outcome.
+- Preferred test naming pattern: `{{NAMING_PATTERN}}`
+- Keep test names clear about behavior and expected result.
 
-## Mocking Guidance
-- Use `{{MOCK_LIB}}` for external dependencies and nondeterministic boundaries.
-- Avoid over-mocking implementation details.
+## Assertions
+
+- Preferred assertion style: `{{ASSERTION_LIB}}`
+- Prefer direct, readable assertions over overly clever helpers.
+
+## Mocking
+
+- Preferred mocking approach: `{{MOCK_LIB}}`
+- Mock only I/O and system boundaries; keep pure logic tests simple.
+
+## General Guidance
+
+- Use pytest-style test functions and fixtures consistently.
+- Prefer small fixtures with explicit intent.
+- Add regression tests before refactoring bug fixes.

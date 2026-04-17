@@ -1,23 +1,30 @@
----
-applyTo: "**/*.{java,kt}"
----
+# Project TDD Patterns
 
-# TDD Patterns (Java)
+Use these Java testing conventions for this project.
+
+## Test Layout
 
 - Test directory: `{{TEST_DIR}}`
-- Test naming pattern: `{{NAMING_PATTERN}}`
-- Assertion library: `{{ASSERTION_LIB}}`
-- Mocking approach: `{{MOCK_LIB}}`
+- Test file pattern: `{{TEST_FILE_PATTERN}}`
+- Source file pattern: `{{SOURCE_FILE_PATTERN}}`
 
-## Preferred Test Style
-- Use clear arrange / act / assert blocks.
-- One behavior per test.
-- Use `{{ASSERTION_LIB}}` assertions consistently.
+## Naming
 
-## Naming Guidance
-- Follow `{{NAMING_PATTERN}}` for test methods.
-- Keep class names aligned with unit under test.
+- Preferred test naming pattern: `{{NAMING_PATTERN}}`
+- Choose method names that describe the scenario and expected outcome.
 
-## Mocking Guidance
-- Use `{{MOCK_LIB}}` for external systems and side-effecting collaborators.
-- Favor real collaborators for stable in-memory behavior.
+## Assertions
+
+- Preferred assertion library: `{{ASSERTION_LIB}}`
+- Use fluent or descriptive assertions when available.
+
+## Mocking
+
+- Preferred mocking approach: `{{MOCK_LIB}}`
+- Mock only collaborators outside the unit under test.
+
+## General Guidance
+
+- Keep each test method focused on one behavior.
+- Prefer readable fixture setup over large shared mutable fixtures.
+- Re-run the focused test suite after every GREEN and REFACTOR step.

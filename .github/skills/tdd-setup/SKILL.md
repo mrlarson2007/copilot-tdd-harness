@@ -3,71 +3,103 @@ name: tdd-setup
 description: >
   Configure TDD harness for this project. Scans existing code to detect
   test runner, framework, and naming patterns, then interviews you to fill
-  any gaps. Generates tdd-config.json and tdd-patterns.instructions.md.
+  any gaps. Generates .github/tdd-config.json and
+  .github/instructions/tdd-patterns.instructions.md.
 user-invocable: true
 ---
 
 # tdd-setup
 
-Use this skill when the user runs `/tdd-setup`.
+Use this skill when the repository needs project-specific TDD configuration.
 
-## Goal
-Generate project-specific TDD harness files:
+## Goals
+
+Generate:
+
 - `.github/tdd-config.json`
 - `.github/instructions/tdd-patterns.instructions.md`
 
-## Mode Detection
+## Operating Modes
 
-1. Determine mode:
-   - **Existing project mode**: if any of `*.sln`, `package.json`, `pyproject.toml`, `pom.xml`, `build.gradle`, or existing test files are present.
-   - **New project mode**: if none of the above are present.
-2. In existing-project mode, run the platform scan script and pre-fill values.
-3. In new-project mode, skip scan output and ask interview questions directly.
+- **Existing project**: Run the scan script first, pre-fill detected values, and ask the user to confirm or correct them before writing files.
+- **New project**: If nothing meaningful is detected and there are no existing tests, skip raw scan details and interview the user directly.
 
-## Existing-Project Scan
+## Scan Step
 
-- On Windows run: `pwsh -NoProfile -File scripts/tdd-scan.ps1`
-- On Linux/macOS run: `bash scripts/tdd-scan.sh`
+1. Detect the host OS.
+2. Run the matching script from the repository root:
+   - Windows: `pwsh -File scripts/tdd-scan.ps1`
+   - Linux/macOS: `bash scripts/tdd-scan.sh`
+3. Parse the JSON output only. Do not invent detected values that are not present in the scan output.
 
-Parse the JSON object and use these fields when available:
-- `testRunner`
-- `testWorkingDir`
-- `testDir`
-- `namingPattern`
-- `assertionLib`
-- `mockLib`
-- `existingTestCount`
-- `detected` (array of field names)
+Expected scan payload:
 
-## Interview + Confirmation Flow
+```json
+{
+  "testRunner": "dotnet test",
+  "testWorkingDir": ".",
+  "testDir": "tests/",
+  "namingPattern": "WhenCondition_ShouldExpectedOutcome",
+  "assertionLib": "Shouldly",
+  "mockLib": "Moq",
+  "existingTestCount": 42,
+  "detected": ["testRunner", "testDir", "namingPattern", "assertionLib", "mockLib"]
+}
+```
 
-1. Present all detected values in a compact checklist/table.
-2. Ask the user to confirm or edit each value before writing files.
-3. For missing values, ask:
-   - Test runner command
-   - Test working directory
-   - Test file directory/pattern
-   - Test naming convention
-   - Assertion library/style
-   - Mocking library/approach
-   - Project-specific test patterns (DB/time/logging/etc.)
-4. Do not write files until the user confirms final values.
+## Interview Workflow
+
+Present detected values first, then ask for confirmation or corrections.
+
+If a value is missing, ask:
+
+1. What test runner do you use?
+2. Where are your test files?
+3. What naming convention do you use for test methods or test cases?
+4. What assertion library do you use?
+5. What mocking approach or mocking library do you use?
+6. Are there project-specific testing patterns for time, logging, HTTP, database, or other dependencies?
+
+Do not write files until the user has confirmed the final values.
 
 ## File Generation
 
-After confirmation, generate:
+After confirmation:
 
-1. `.github/tdd-config.json`
-   - Include confirmed values for command, working directory, and test file pattern.
-2. `.github/instructions/tdd-patterns.instructions.md`
-   - Select template from `.github/skills/tdd-setup/templates/` based on stack:
-     - `dotnet.tdd-patterns.md`
-     - `node.tdd-patterns.md`
-     - `python.tdd-patterns.md`
-     - `java.tdd-patterns.md`
-   - If no template fits, generate from scratch.
-   - Fill template placeholders with confirmed values and examples.
+1. Write `.github/tdd-config.json` with the confirmed test runner and file patterns.
+2. Choose the closest template from `.github/skills/tdd-setup/templates/`:
+   - `dotnet.tdd-patterns.md`
+   - `node.tdd-patterns.md`
+   - `python.tdd-patterns.md`
+   - `java.tdd-patterns.md`
+3. Expand the template with project-specific values.
+4. Write the result to `.github/instructions/tdd-patterns.instructions.md`.
 
-## Output Contract
+Use this config shape when generating `.github/tdd-config.json`:
 
-Report what was created/updated and echo final confirmed values so the user can review them quickly.
+```json
+{
+  "testCommand": "<confirmed test runner command>",
+  "testWorkingDir": "<confirmed working directory>",
+  "testFilePattern": "<pattern derived from the confirmed test directory and language>",
+  "sourceFilePattern": "<matching source file glob>"
+}
+```
+
+## Template Selection Guide
+
+- **dotnet**: `dotnet test`, `.sln`, `.csproj`
+- **node**: `npm test`, `npx vitest`, `package.json`
+- **python**: `pytest`, `pyproject.toml`, `requirements.txt`
+- **java**: `mvn test`, `./gradlew test`, `pom.xml`, `build.gradle`
+
+If no template is a close match, generate the instructions from scratch using the same sections as the nearest template.
+
+## Output Requirements
+
+When the skill completes, report:
+
+- which values were auto-detected
+- which values were provided by the user
+- which files were created or updated
+- any values the user may still want to refine later

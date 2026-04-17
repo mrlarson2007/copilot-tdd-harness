@@ -1,23 +1,30 @@
----
-applyTo: "**/*.{js,jsx,ts,tsx,mjs,cjs}"
----
+# Project TDD Patterns
 
-# TDD Patterns (Node)
+Use these JavaScript / TypeScript testing conventions for this project.
+
+## Test Layout
 
 - Test directory: `{{TEST_DIR}}`
-- Test naming pattern: `{{NAMING_PATTERN}}`
-- Assertion library: `{{ASSERTION_LIB}}`
-- Mocking approach: `{{MOCK_LIB}}`
+- Test file pattern: `{{TEST_FILE_PATTERN}}`
+- Source file pattern: `{{SOURCE_FILE_PATTERN}}`
 
-## Preferred Test Style
-- Keep each test focused on one behavior.
-- Use clear arrange-act-assert sections.
-- Use `{{ASSERTION_LIB}}` matchers consistently.
+## Naming
 
-## Naming Guidance
-- Follow `{{NAMING_PATTERN}}` for `describe` and `it/test` names.
-- Prefer explicit scenario and expected outcome wording.
+- Preferred test naming pattern: `{{NAMING_PATTERN}}`
+- Prefer test names that read like behavior statements.
 
-## Mocking Guidance
-- Use `{{MOCK_LIB}}` for network, filesystem, clock, and other side effects.
-- Prefer integration-style tests for stable in-process boundaries.
+## Assertions
+
+- Preferred assertion style: `{{ASSERTION_LIB}}`
+- Keep assertions close to the action being verified.
+
+## Mocking
+
+- Preferred mocking approach: `{{MOCK_LIB}}`
+- Mock network, filesystem, time, and other external boundaries deliberately.
+
+## General Guidance
+
+- Keep each `test(...)` or `it(...)` focused on one behavior.
+- Use explicit setup helpers instead of hidden global fixtures when possible.
+- Preserve readable red/green/refactor steps in commit history.
