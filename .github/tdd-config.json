@@ -1,8 +1,0 @@
-{
-  "$schema": "./tdd-config.schema.json",
-  "testCommand": "echo \"Configure testCommand for this repository before enabling hard enforcement.\"",
-  "testWorkingDir": ".",
-  "testFilePattern": "**/*.{test,spec}.*",
-  "sourceFilePattern": "**/*",
-  "hookMode": "soft"
-}
