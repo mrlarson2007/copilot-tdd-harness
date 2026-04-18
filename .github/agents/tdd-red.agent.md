@@ -7,14 +7,13 @@ description: >
 tools:
   - read_file
   - create_file
-  - replace_string_in_file
-  - multi_replace_string_in_file
-  - run_in_terminal
+  - file_search
+  - grep_search
 agents:
   - tdd-green
 handoffs:
   - agent: tdd-green
-    condition: "new_tests.count == 1 && new_tests.failing == 1 && changed_files.production == 0 && prior_tests.status == 'passing'"
+    condition: "exactly one new failing test exists and all prior tests still pass"
 ---
 
 PHASE: RED
@@ -28,12 +27,6 @@ REASON: <why this is the next smallest behavior to prove>
 - Do not modify production code.
 - Do not commit in this phase.
 - Stop once the single failing test is confirmed.
-
-## Handoff condition context
-- `new_tests.count`: number of tests added in this phase.
-- `new_tests.failing`: number of newly added tests currently failing.
-- `changed_files.production`: number of production files changed in this phase.
-- `prior_tests.status`: status of pre-existing tests (`passing`/`failing`).
 
 ## Self-critique checklist
 - [ ] Exactly ONE new test added.

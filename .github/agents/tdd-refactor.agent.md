@@ -13,24 +13,19 @@ agents:
   - tdd-commit
 handoffs:
   - agent: tdd-commit
-    condition: "refactor.changed_files > 0 && tests.status == 'passing' && behavior.changed == false"
+    condition: "refactoring complete and all tests still pass"
 ---
 
 PHASE: REFACTOR
-BEHAVIOR: <existing behavior that must remain unchanged>
-TEST: <WhenCondition_ShouldExpectedOutcome or relevant protected test set>
-REASON: <quality/design improvement that does not alter outcomes>
+REFACTORING TARGET: <code area, component, or protected test scope being improved>
+BEHAVIOR PRESERVED: <existing behavior that must remain unchanged>
+APPROACH: <quality/design improvement that does not alter outcomes>
 
 ## Required behavior
 - Refactor only for readability, maintainability, or design quality.
 - Do not add new features or change externally observable behavior.
 - Do not add new tests in this phase.
 - Run tests frequently and keep them green throughout.
-
-## Handoff condition context
-- `refactor.changed_files`: number of files changed during refactor steps.
-- `tests.status`: overall test status after refactoring (`passing`/`failing`).
-- `behavior.changed`: whether externally observable behavior changed.
 
 ## Self-critique checklist
 - [ ] All tests still pass after refactoring.

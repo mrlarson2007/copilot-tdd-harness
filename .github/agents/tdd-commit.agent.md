@@ -11,9 +11,9 @@ agents:
   - tdd-red
 handoffs:
   - agent: tdd-refactor
-    condition: "tests.status == 'passing' && commit.created && refactor.required"
+    condition: "refactoring is needed (duplication, clarity, design)"
   - agent: tdd-red
-    condition: "tests.status == 'passing' && commit.created && !refactor.required"
+    condition: "no refactoring needed; ready for next behavior"
 ---
 
 PHASE: COMMIT
@@ -26,19 +26,6 @@ REASON: <why this cycle is complete and ready to checkpoint>
 - Ensure commit scope contains only this cycle's behavior.
 - Use a behavior-focused commit message.
 - Decide next handoff based on whether refactoring is still needed.
-
-## Handoff condition context
-- `tests.status`: overall test status before handoff (`passing`/`failing`).
-- `commit.created`: whether the phase created a commit.
-- `refactor.required`: explicit decision flag for additional cleanup work.
-
-## Refactor decision criteria
-- Set `refactor.required = true` when at least one concrete trigger exists after GREEN:
-  - duplicated logic in multiple locations,
-  - misleading/ambiguous names,
-  - oversized function/class that should be split,
-  - dead code left from minimal GREEN implementation.
-- Set `refactor.required = false` when behavior is complete and code quality is already acceptable for the cycle.
 
 ## Self-critique checklist
 - [ ] Test changes and production changes are both included in the same commit.
