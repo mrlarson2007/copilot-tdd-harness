@@ -11,9 +11,9 @@ agents:
   - tdd-red
 handoffs:
   - agent: tdd-refactor
-    condition: "tests.status == 'passing' && commit.created == true && refactor.required == true"
+    condition: "tests.status == 'passing' && commit.created && refactor.required"
   - agent: tdd-red
-    condition: "tests.status == 'passing' && commit.created == true && refactor.required == false"
+    condition: "tests.status == 'passing' && commit.created && !refactor.required"
 ---
 
 PHASE: COMMIT

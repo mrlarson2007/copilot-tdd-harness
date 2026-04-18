@@ -18,7 +18,12 @@ handoffs:
 hooks:
   Stop:
     - command: "scripts/tdd-run-tests.sh"
-      when: "platform == 'unix'"
+      when: "platform == 'linux'"
+      decision: "block"
+      condition: "test_run.failed > 0"
+      message: "Cannot leave GREEN while any test is failing."
+    - command: "scripts/tdd-run-tests.sh"
+      when: "platform == 'darwin'"
       decision: "block"
       condition: "test_run.failed > 0"
       message: "Cannot leave GREEN while any test is failing."
@@ -48,8 +53,9 @@ REASON: <smallest code change that should satisfy the test>
 - `changed_files.production`: number of changed production files.
 
 ## Hook script contract
-- `scripts/tdd-run-tests.sh` (unix) and `scripts/tdd-run-tests.ps1` (windows) are the required test-entry scripts.
+- `scripts/tdd-run-tests.sh` is required on `linux` and `darwin`; `scripts/tdd-run-tests.ps1` is required on `windows`.
 - Missing script on the active platform is a failed precondition (`test_run.failed = 1`) and must block GREEN exit.
+- Unknown platform values are treated as blocked preconditions until an explicit platform mapping is provided.
 
 ## Self-critique checklist
 - [ ] All tests pass, including the new RED test.
