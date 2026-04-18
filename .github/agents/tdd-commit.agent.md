@@ -33,7 +33,11 @@ REASON: <why this cycle is complete and ready to checkpoint>
 - `refactor.required`: explicit decision flag for additional cleanup work.
 
 ## Refactor decision criteria
-- Set `refactor.required = true` when duplication, naming clarity, structure, or maintainability debt remains after GREEN.
+- Set `refactor.required = true` when at least one concrete trigger exists after GREEN:
+  - duplicated logic in multiple locations,
+  - misleading/ambiguous names,
+  - oversized function/class that should be split,
+  - dead code left from minimal GREEN implementation.
 - Set `refactor.required = false` when behavior is complete and code quality is already acceptable for the cycle.
 
 ## Self-critique checklist

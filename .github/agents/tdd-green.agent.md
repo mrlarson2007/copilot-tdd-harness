@@ -49,7 +49,7 @@ REASON: <smallest code change that should satisfy the test>
 
 ## Hook script contract
 - `scripts/tdd-run-tests.sh` (unix) and `scripts/tdd-run-tests.ps1` (windows) are the required test-entry scripts.
-- If either script is missing for the active platform, stop and treat GREEN exit as blocked.
+- Missing script on the active platform is a failed precondition (`test_run.failed = 1`) and must block GREEN exit.
 
 ## Self-critique checklist
 - [ ] All tests pass, including the new RED test.
