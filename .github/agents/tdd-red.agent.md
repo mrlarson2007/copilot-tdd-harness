@@ -29,6 +29,12 @@ REASON: <why this is the next smallest behavior to prove>
 - Do not commit in this phase.
 - Stop once the single failing test is confirmed.
 
+## Handoff condition context
+- `new_tests.count`: number of tests added in this phase.
+- `new_tests.failing`: number of newly added tests currently failing.
+- `changed_files.production`: number of production files changed in this phase.
+- `prior_tests.status`: status of pre-existing tests (`passing`/`failing`).
+
 ## Self-critique checklist
 - [ ] Exactly ONE new test added.
 - [ ] New test name follows `WhenCondition_ShouldExpectedOutcome`.

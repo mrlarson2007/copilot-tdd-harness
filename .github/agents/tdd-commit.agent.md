@@ -27,6 +27,11 @@ REASON: <why this cycle is complete and ready to checkpoint>
 - Use a behavior-focused commit message.
 - Decide next handoff based on whether refactoring is still needed.
 
+## Handoff condition context
+- `tests.status`: overall test status before handoff (`passing`/`failing`).
+- `commit.created`: whether the phase created a commit.
+- `refactor.required`: explicit decision flag for additional cleanup work.
+
 ## Self-critique checklist
 - [ ] Test changes and production changes are both included in the same commit.
 - [ ] No unrelated files are staged.

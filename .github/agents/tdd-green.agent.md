@@ -17,7 +17,13 @@ handoffs:
     condition: "new_tests.count == 1 && test_run.failed == 0 && changed_files.tests >= 1 && changed_files.production >= 1"
 hooks:
   Stop:
-    - command: "scripts/tdd-run-tests.{ps1,sh}"
+    - command: "scripts/tdd-run-tests.sh"
+      when: "platform == 'unix'"
+      decision: "block"
+      condition: "test_run.failed > 0"
+      message: "Cannot leave GREEN while any test is failing."
+    - command: "scripts/tdd-run-tests.ps1"
+      when: "platform == 'windows'"
       decision: "block"
       condition: "test_run.failed > 0"
       message: "Cannot leave GREEN while any test is failing."
@@ -34,6 +40,12 @@ REASON: <smallest code change that should satisfy the test>
 - Do not add new tests in GREEN.
 - Do not refactor in GREEN.
 - Run tests and continue only when all tests pass.
+
+## Handoff condition context
+- `new_tests.count`: number of tests added in this cycle.
+- `test_run.failed`: failing test count from the most recent GREEN test run.
+- `changed_files.tests`: number of changed test files.
+- `changed_files.production`: number of changed production files.
 
 ## Self-critique checklist
 - [ ] All tests pass, including the new RED test.

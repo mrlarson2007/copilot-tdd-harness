@@ -27,6 +27,11 @@ REASON: <quality/design improvement that does not alter outcomes>
 - Do not add new tests in this phase.
 - Run tests frequently and keep them green throughout.
 
+## Handoff condition context
+- `refactor.changed_files`: number of files changed during refactor steps.
+- `tests.status`: overall test status after refactoring (`passing`/`failing`).
+- `behavior.changed`: whether externally observable behavior changed.
+
 ## Self-critique checklist
 - [ ] All tests still pass after refactoring.
 - [ ] No behavior changes were introduced.
