@@ -31,7 +31,6 @@ REASON: <why this cycle is complete and ready to checkpoint>
 - `tests.status`: overall test status before handoff (`passing`/`failing`).
 - `commit.created`: whether the phase created a commit.
 - `refactor.required`: explicit decision flag for additional cleanup work.
-- Runtime note: these variables are inferred/set by the handoff engine from phase execution results; agents do not set them manually.
 
 ## Refactor decision criteria
 - Set `refactor.required = true` when at least one concrete trigger exists after GREEN:

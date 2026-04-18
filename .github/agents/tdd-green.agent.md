@@ -55,7 +55,7 @@ REASON: <smallest code change that should satisfy the test>
 ## Hook script contract
 - `scripts/tdd-run-tests.sh` is required on `linux` and `darwin`; `scripts/tdd-run-tests.ps1` is required on `windows`.
 - These scripts are lifecycle-hook prerequisites for GREEN enforcement and should exist in the repository `scripts/` directory.
-- Missing script on the active platform is a failed precondition (`test_run.failed = 1`) and must block GREEN exit.
+- Missing script on the active platform is a failed precondition and must block GREEN exit.
 - Unknown platform values are treated as blocked preconditions by the runtime until an explicit platform mapping is provided (for example: `platform == "freebsd"` -> `scripts/tdd-run-tests.sh`).
 
 ## Self-critique checklist
