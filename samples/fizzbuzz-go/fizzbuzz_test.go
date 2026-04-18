@@ -19,3 +19,12 @@ func TestWhenInputDivisibleByThree_ShouldReturnFizz(t *testing.T) {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
 }
+
+func TestWhenInputDivisibleByFive_ShouldReturnBuzz(t *testing.T) {
+	got := FizzBuzz(5)
+	want := "Buzz"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}

@@ -7,5 +7,9 @@ func FizzBuzz(n int) string {
 		return "Fizz"
 	}
 
+	if n%5 == 0 {
+		return "Buzz"
+	}
+
 	return strconv.Itoa(n)
 }
