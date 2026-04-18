@@ -3,10 +3,19 @@ package fizzbuzz
 import "testing"
 
 func TestWhenInputIsOne_ShouldReturnOne(t *testing.T) {
-got := FizzBuzz(1)
-want := "1"
+	got := FizzBuzz(1)
+	want := "1"
 
 if got != want {
 t.Fatalf("expected %q, got %q", want, got)
+	}
 }
+
+func TestWhenInputDivisibleByThree_ShouldReturnFizz(t *testing.T) {
+	got := FizzBuzz(3)
+	want := "Fizz"
+
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
 }
