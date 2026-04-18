@@ -56,7 +56,7 @@ REASON: <smallest code change that should satisfy the test>
 - `scripts/tdd-run-tests.sh` is required on `linux` and `darwin`; `scripts/tdd-run-tests.ps1` is required on `windows`.
 - These scripts are provided by the lifecycle-hooks phase (`issue-5`) and are external prerequisites for GREEN enforcement.
 - Missing script on the active platform is a failed precondition (`test_run.failed = 1`) and must block GREEN exit.
-- Unknown platform values are treated as blocked preconditions until an explicit platform mapping is provided (for example: `platform == 'freebsd'` -> `scripts/tdd-run-tests.sh`).
+- Unknown platform values are treated as blocked preconditions until an explicit platform mapping is provided (for example: `platform == "freebsd"` -> `scripts/tdd-run-tests.sh`).
 
 ## Self-critique checklist
 - [ ] All tests pass, including the new RED test.
