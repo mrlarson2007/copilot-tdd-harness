@@ -47,6 +47,10 @@ REASON: <smallest code change that should satisfy the test>
 - `changed_files.tests`: number of changed test files.
 - `changed_files.production`: number of changed production files.
 
+## Hook script contract
+- `scripts/tdd-run-tests.sh` (unix) and `scripts/tdd-run-tests.ps1` (windows) are the required test-entry scripts.
+- If either script is missing for the active platform, stop and treat GREEN exit as blocked.
+
 ## Self-critique checklist
 - [ ] All tests pass, including the new RED test.
 - [ ] Production change is minimal and behavior-focused.

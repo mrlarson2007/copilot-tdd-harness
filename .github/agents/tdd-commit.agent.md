@@ -32,6 +32,10 @@ REASON: <why this cycle is complete and ready to checkpoint>
 - `commit.created`: whether the phase created a commit.
 - `refactor.required`: explicit decision flag for additional cleanup work.
 
+## Refactor decision criteria
+- Set `refactor.required = true` when duplication, naming clarity, structure, or maintainability debt remains after GREEN.
+- Set `refactor.required = false` when behavior is complete and code quality is already acceptable for the cycle.
+
 ## Self-critique checklist
 - [ ] Test changes and production changes are both included in the same commit.
 - [ ] No unrelated files are staged.
