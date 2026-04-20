@@ -140,7 +140,7 @@ fi
 
 first_failure_test=""
 if [ "$failed" -gt 0 ]; then
-  first_failure_test="$(printf '%s' "$test_output" | sed -n -E 's/^--- FAIL: ([^[:space:]]+).*/\1/p' | head -n 1)"
+  first_failure_test="$(printf '%s' "$test_output" | sed -n -E 's/^--- FAIL: ([^[:space:]:()]+).*/\1/p' | head -n 1)"
   if [ -z "$first_failure_test" ]; then
     first_failure_test="$(printf '%s' "$test_output" | sed -n -E 's/^[[:space:]]*✕[[:space:]]+(.+)$/\1/p' | head -n 1)"
   fi
@@ -156,7 +156,7 @@ expected=""
 actual=""
 if [ "$failed" -gt 0 ]; then
   expected="$(printf '%s' "$test_output" | sed -n -E 's/.*[Ee]xpected[:[:space:]]+(.+)/\1/p' | head -n 1)"
-  actual="$(printf '%s' "$test_output" | sed -n -E 's/.*(Received|Actual)[:[:space:]]+(.+)/\2/p' | head -n 1)"
+  actual="$(printf '%s' "$test_output" | sed -n -E 's/.*([Rr]eceived|[Aa]ctual)[:[:space:]]+(.+)/\2/p' | head -n 1)"
   if [ -z "$expected" ]; then expected="expected behavior"; fi
   if [ -z "$actual" ]; then actual="actual behavior differs"; fi
 fi
@@ -164,12 +164,25 @@ fi
 likely_cause="the implementation for this behavior is incomplete"
 hypothesis="update the production code minimally to satisfy the failing assertion, then rerun tests"
 if [ "$failed" -gt 0 ]; then
+  test_output_lower="$(to_lower "$test_output")"
+  if [[ "$test_output_lower" == *"expected"* ]] && ([[ "$test_output_lower" == *"actual"* ]] || [[ "$test_output_lower" == *"received"* ]]); then
+    likely_cause="assertion mismatch indicates current behavior differs from test expectation"
+    hypothesis="adjust the implementation branch used by the failing test, then rerun tests"
+  elif [[ "$test_output_lower" == *"command not found"* ]] || [[ "$test_output_lower" == *"is not recognized as"* ]]; then
+    likely_cause="configured test command is unavailable in the current environment"
+    hypothesis="fix testCommand/testWorkingDir configuration and rerun tests"
+  elif [[ "$test_output_lower" == *"module not found"* ]] || [[ "$test_output_lower" == *"cannot find module"* ]] || [[ "$test_output_lower" == *"importerror"* ]]; then
+    likely_cause="missing dependency or unresolved import in test execution path"
+    hypothesis="install or restore required dependencies and rerun tests"
+  fi
+fi
+if [ "$failed" -gt 0 ]; then
   reflexion="REFLEXION: ${first_failure_test} failed. Expected ${expected}, got ${actual}. Likely cause: ${likely_cause}. Hypothesis: ${hypothesis}."
 else
   reflexion="REFLEXION: All tests passed. Continue with strict phase discipline."
 fi
 
-phase_constraint="write only the minimal production code needed to make the failing test pass."
+phase_constraint="follow the current phase rule strictly and keep changes minimal."
 case "$phase" in
   RED) phase_constraint="write exactly one failing test and avoid production changes." ;;
   GREEN) phase_constraint="write only the minimal production code needed to make the failing test pass." ;;
@@ -177,7 +190,7 @@ case "$phase" in
   COMMIT) phase_constraint="commit test and production changes together for one completed behavior." ;;
 esac
 
-stop_hook_active_raw="${stop_hook_active:-${STOP_HOOK_ACTIVE:-false}}"
+stop_hook_active_raw="${STOP_HOOK_ACTIVE:-${stop_hook_active:-false}}"
 stop_hook_active="$(to_lower "$stop_hook_active_raw")"
 if [ "$stop_hook_active" = "1" ] || [ "$stop_hook_active" = "yes" ]; then
   stop_hook_active="true"
@@ -229,7 +242,11 @@ emit_terminal() {
 
   if [ "$failed" -gt 0 ]; then
     decision="block"
-    message="${failed} test failing. Run tests and make them pass before finishing."
+    if [ "$failed" -eq 1 ]; then
+      message="1 test failing. Run tests and make them pass before finishing."
+    else
+      message="${failed} tests failing. Run tests and make them pass before finishing."
+    fi
   else
     decision="allow"
     if [ -n "$test_command" ]; then

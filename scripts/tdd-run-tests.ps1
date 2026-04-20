@@ -180,6 +180,21 @@ function Get-TestState {
 
     $likelyCause = "the implementation for this behavior is incomplete"
     $hypothesis = "update the production code minimally to satisfy the failing assertion, then rerun tests"
+    if ($failed -gt 0) {
+        $outputLower = $output.ToLowerInvariant()
+        if ($outputLower.Contains("expected") -and ($outputLower.Contains("actual") -or $outputLower.Contains("received"))) {
+            $likelyCause = "assertion mismatch indicates current behavior differs from test expectation"
+            $hypothesis = "adjust the implementation branch used by the failing test, then rerun tests"
+        }
+        elseif ($outputLower.Contains("command not found") -or $outputLower.Contains("is not recognized as")) {
+            $likelyCause = "configured test command is unavailable in the current environment"
+            $hypothesis = "fix testCommand/testWorkingDir configuration and rerun tests"
+        }
+        elseif ($outputLower.Contains("module not found") -or $outputLower.Contains("cannot find module") -or $outputLower.Contains("importerror")) {
+            $likelyCause = "missing dependency or unresolved import in test execution path"
+            $hypothesis = "install or restore required dependencies and rerun tests"
+        }
+    }
     $reflexion = if ($failed -gt 0) {
         "REFLEXION: $firstFailureTest failed. Expected $expected, got $actual. Likely cause: $likelyCause. Hypothesis: $hypothesis."
     }
@@ -210,10 +225,10 @@ $phaseConstraint = switch ($phase) {
     "GREEN" { "write only the minimal production code needed to make the failing test pass." }
     "REFACTOR" { "refactor only while all tests remain green and behavior stays unchanged." }
     "COMMIT" { "commit test and production changes together for one completed behavior." }
-    default { "write only the minimal production code needed to make the failing test pass." }
+    default { "follow the current phase rule strictly and keep changes minimal." }
 }
 
-$stopHookActiveRaw = if ($env:stop_hook_active) { $env:stop_hook_active } elseif ($env:STOP_HOOK_ACTIVE) { $env:STOP_HOOK_ACTIVE } else { "false" }
+$stopHookActiveRaw = if ($env:STOP_HOOK_ACTIVE) { $env:STOP_HOOK_ACTIVE } elseif ($env:stop_hook_active) { $env:stop_hook_active } else { "false" }
 $stopHookActive = @("true", "1", "yes") -contains $stopHookActiveRaw.ToLowerInvariant()
 
 $gitMessage = ""
@@ -268,7 +283,12 @@ $payload = switch ($Mode) {
 
         $decision = if ($state.failed -gt 0) { "block" } else { "allow" }
         $message = if ($state.failed -gt 0) {
-            "$($state.failed) test failing. Run tests and make them pass before finishing."
+            if ($state.failed -eq 1) {
+                "1 test failing. Run tests and make them pass before finishing."
+            }
+            else {
+                "$($state.failed) tests failing. Run tests and make them pass before finishing."
+            }
         }
         elseif ($config.testCommand) {
             "All $($state.passed) tests pass. GREEN phase complete."
