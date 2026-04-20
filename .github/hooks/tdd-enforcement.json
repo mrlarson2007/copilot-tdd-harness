@@ -1,0 +1,28 @@
+{
+  "hooks": [
+    {
+      "event": "UserPromptSubmit",
+      "command": "scripts/tdd-run-tests hint",
+      "description": "Inject one-line TDD phase reminder into context"
+    },
+    {
+      "event": "PostToolUse",
+      "tools": [
+        "replace_string_in_file",
+        "create_file"
+      ],
+      "command": "scripts/tdd-run-tests step",
+      "description": "Run tests after file edits and emit Reflexion feedback"
+    },
+    {
+      "event": "Stop",
+      "command": "scripts/tdd-run-tests terminal",
+      "description": "Block session end when tests are failing"
+    },
+    {
+      "event": "PreCompact",
+      "command": "scripts/tdd-run-tests state",
+      "description": "Persist compact TDD phase and test state"
+    }
+  ]
+}
