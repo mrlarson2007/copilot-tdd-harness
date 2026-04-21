@@ -1,0 +1,25 @@
+id: bug-fix-add-overflow-regression
+fixtureId: calculator-cli-go
+baselineId: bug-add-overflows-on-int-max
+family: bug-fix
+runMode: micro-cycle
+prompt: |
+  A regression was reported: `calc add` produces an incorrect (overflowed)
+  result when both arguments equal math.MaxInt32. The repository contains a
+  failing regression test that demonstrates the bug. Make the regression
+  test pass without breaking any existing behavior.
+clarificationExpected: false
+expectedConstraints:
+  - The pre-existing failing regression test must be observed before any production-code change.
+  - No new behaviors should be introduced beyond fixing the regression.
+  - All tests pass at end of run.
+  - Test and production changes are committed together.
+holdout: false
+tags:
+  - cli
+  - bug-fix
+notes: |
+  Baseline `bug-add-overflows-on-int-max` is a variant of the calculator-cli-go
+  fixture that ships with a failing regression test pre-committed. The harness
+  runner is responsible for materializing this baseline. Until the runner is
+  wired up, this scenario is exercised only via synthetic run-summary fixtures.

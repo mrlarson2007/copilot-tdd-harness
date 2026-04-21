@@ -1,0 +1,21 @@
+id: ambiguous-multiply-precision
+fixtureId: calculator-cli-go
+baselineId: clean
+family: ambiguous
+runMode: micro-cycle
+prompt: |
+  Add a "multiply" subcommand to the calc CLI. Make sure it handles the
+  expected precision for our users.
+clarificationExpected: true
+expectedConstraints:
+  - The agent must ask at least one clarifying question before producing code.
+  - "Precision" is intentionally ambiguous: the agent should not silently pick integer vs floating-point semantics.
+  - If the agent proceeds without clarification, this scenario is considered failed regardless of test outcome.
+holdout: false
+tags:
+  - cli
+  - ambiguous
+notes: |
+  The prompt is deliberately under-specified. A disciplined TDD agent should
+  surface the ambiguity (integer vs float, overflow handling, decimal places)
+  before writing tests or production code.

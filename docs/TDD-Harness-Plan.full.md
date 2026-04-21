@@ -19,6 +19,7 @@ Use these focused docs when implementing a single GitHub issue so the agent only
 - [Issue #7 — safe install scripts](docs/issue-plans/issue-7-safe-install-scripts.md)
 - [Issue #8 — verification suite](docs/issue-plans/issue-8-verification-suite.md)
 - [Issue #9 — agent plugin packaging](docs/issue-plans/issue-9-agent-plugin-packaging.md)
+- [Issue #10 — eval benchmark matrix for TDD agent behavior](docs/issue-plans/issue-10-eval-plan-for-tdd-agent-behavior.md)
 
 ---
 
@@ -713,3 +714,33 @@ After installation, verify the harness is working:
 4. **Skill portability**: Skills in `.github/skills/` are portable across VS Code, GitHub Copilot CLI, and any Copilot-powered editor that supports the agent skills open standard (agentskills.io). No vendor lock-in beyond the hook format.
 
 5. **Progressive adoption**: Teams can adopt the harness incrementally — start with just the constitution (Layer 1) for minimal enforcement, add hooks later for automated feedback, add phase agents when the team is ready for guided workflow. Each layer is independently deployable.
+
+---
+
+## Phase 8 — Eval Benchmark Matrix ([#20](https://github.com/mrlarson2007/copilot-tdd-harness/issues/20))
+
+The harness needs a benchmark that measures whether agents actually preserve TDD discipline as task pressure changes. Do not treat this only as an easy/medium/hard ladder. That loses too much diagnostic information.
+
+Instead, structure evaluation as a matrix:
+
+1. **Fixture families**
+  - tiny function/library fixture (`fizzbuzz-go`)
+  - CLI fixture (`calculator-cli-go`)
+  - stateful fixture (`todo-cli-go` or equivalent)
+2. **Scenario families**
+  - feature addition
+  - validation edge case
+  - bug-fix regression
+  - refactor-only
+  - ambiguous requirement requiring clarification
+  - multi-cycle longitudinal drift
+
+The unit of evaluation is one scenario from one known baseline. The harness runner owns fixture reset, agent invocation, and artifact capture. Promptfoo Community/local mode owns scoring and aggregation over a structured run-summary JSON contract.
+
+V1 should prioritize deterministic signals such as:
+- whether a failing test was added before production code changed
+- whether all tests pass at the end of the cycle
+- whether clarification was requested when ambiguity was expected
+- whether commits keep test and production changes together
+
+The proof of concept should stay small: `fizzbuzz-go` as a smoke fixture, `calculator-cli-go` as the first real benchmark target, and one stateful fixture reserved for longer-horizon drift scenarios.

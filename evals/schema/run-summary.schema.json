@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mrlarson2007/copilot-tdd-harness/evals/schema/run-summary.schema.json",
+  "title": "TDD Agent Run Summary",
+  "description": "Artifact-derived summary of a single TDD agent benchmark run. This is the contract between the harness runner (which drives the agent and captures artifacts) and Promptfoo (which scores the run). Prefer artifact-derived facts over model self-report.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "fixtureId",
+    "scenarioId",
+    "scenarioFamily",
+    "runMode",
+    "prompt",
+    "phaseTransitions",
+    "clarificationAsked",
+    "newTestsAdded",
+    "productionFilesChanged",
+    "productionChangedBeforeFirstFailingTest",
+    "testsPassedAtEnd",
+    "testRunCount",
+    "commitCount",
+    "testAndCodeCommittedTogether",
+    "failureModes"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Run-summary schema version. Bump on breaking changes."
+    },
+    "fixtureId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier for the fixture family directory, e.g. 'fizzbuzz-go', 'calculator-cli-go', 'todo-cli-go'."
+    },
+    "baselineId": {
+      "type": "string",
+      "description": "Identifier for the clean baseline snapshot used to start the run (e.g. git tag or directory name)."
+    },
+    "scenarioId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier for the scenario within the fixture, e.g. 'feature-add-divisible-by-seven'."
+    },
+    "scenarioFamily": {
+      "type": "string",
+      "enum": [
+        "feature",
+        "validation",
+        "bug-fix",
+        "refactor-only",
+        "ambiguous",
+        "longitudinal"
+      ],
+      "description": "Behavioral pressure family applied by this scenario."
+    },
+    "runMode": {
+      "type": "string",
+      "enum": ["micro-cycle", "longitudinal"],
+      "description": "Single-cycle discipline run vs. multi-cycle drift run."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "User prompt sent to the agent for this scenario (verbatim)."
+    },
+    "phaseTransitions": {
+      "type": "array",
+      "description": "Ordered phase transitions observed during the run, derived from commits/hook events. Each entry records the phase entered and the artifact source.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["phase", "source"],
+        "properties": {
+          "phase": {
+            "type": "string",
+            "enum": ["RED", "GREEN", "REFACTOR", "COMMIT"]
+          },
+          "source": {
+            "type": "string",
+            "enum": ["commit", "hook", "test-run", "edit"],
+            "description": "Where this transition was observed."
+          },
+          "ref": {
+            "type": "string",
+            "description": "Optional reference (commit sha, hook event id, etc.)."
+          },
+          "atTestRunIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Optional index into the testRunCount sequence when this transition was observed."
+          }
+        }
+      }
+    },
+    "clarificationAsked": {
+      "type": "boolean",
+      "description": "True iff the agent asked the user a clarifying question before producing code."
+    },
+    "newTestsAdded": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of new test cases added during the run, derived from test files diff."
+    },
+    "productionFilesChanged": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of production (non-test) files modified during the run."
+    },
+    "productionChangedBeforeFirstFailingTest": {
+      "type": "boolean",
+      "description": "True iff any production-code edit was committed or saved before the first failing test appeared. This is the central RED-before-production fidelity signal."
+    },
+    "testsPassedAtEnd": {
+      "type": "boolean",
+      "description": "True iff the configured test command exited 0 at the end of the run."
+    },
+    "testRunCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of times the test command was executed during the run."
+    },
+    "firstFailingTestName": {
+      "type": "string",
+      "description": "Name of the first failing test observed during the run, if any."
+    },
+    "commitCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of commits produced during the run."
+    },
+    "testAndCodeCommittedTogether": {
+      "type": "boolean",
+      "description": "True iff every commit that touches production code also touches the corresponding test file (or vice versa). Vacuously true when commitCount is 0."
+    },
+    "coverageDelta": {
+      "type": ["number", "null"],
+      "description": "Optional change in line coverage for changed files (post - pre). Null when coverage is unavailable."
+    },
+    "failureModes": {
+      "type": "array",
+      "description": "Structured list of detected fidelity failures. Empty array means no failures detected.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "production-before-red",
+          "no-failing-test-observed",
+          "tests-failing-at-end",
+          "refactor-while-red",
+          "missing-clarification",
+          "multi-behavior-cycle",
+          "test-and-code-split-commit",
+          "no-commit-produced",
+          "harness-error"
+        ]
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional free-form notes from the harness runner. Not used for scoring."
+    }
+  }
+}

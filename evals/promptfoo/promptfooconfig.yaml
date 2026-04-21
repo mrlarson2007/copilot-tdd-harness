@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: TDD harness evaluation scaffold built on Promptfoo Community/local mode.
+
+providers:
+  - file://./provider.js
+
+prompts:
+  - file://./prompt.txt
+
+defaultTest:
+  threshold: 1
+  assert:
+    - type: javascript
+      value: file://./assertions/eval-shape.js
+      metric: payload_shape
+    - type: javascript
+      value: file://./assertions/phase-match.js
+      metric: phase_consistency
+
+tests:
+  - description: Eval payload is stable for a passing GREEN scenario
+    vars:
+      mode: eval
+      phase: GREEN
+      testCommand: echo passed: 1
+      testWorkingDir: .
+      expectedFailed: 0
+    assert:
+      - type: javascript
+        value: file://./assertions/failure-count.js
+        metric: failure_count
+  - description: Eval payload surfaces a failing RED scenario deterministically
+    vars:
+      mode: eval
+      phase: RED
+      testCommand: echo expected: 1 && echo actual: 0 && echo 1 failed, 0 passed && exit 1
+      testWorkingDir: .
+      expectedFailed: 1
+    assert:
+      - type: javascript
+        value: file://./assertions/failure-count.js
+        metric: failure_count
+
+commandLineOptions:
+  cache: false
+  table: true
+
+outputPath: ./results/promptfoo-eval.json

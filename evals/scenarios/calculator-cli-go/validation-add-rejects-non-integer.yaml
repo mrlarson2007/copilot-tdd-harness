@@ -1,0 +1,23 @@
+id: validation-add-rejects-non-integer
+fixtureId: calculator-cli-go
+baselineId: clean
+family: validation
+runMode: micro-cycle
+prompt: |
+  Improve the "add" subcommand so that when either argument is not a valid
+  integer, the CLI prints a clear error message that includes the offending
+  argument and exits with code 2. Existing successful "add" behavior must
+  continue to pass.
+clarificationExpected: false
+expectedConstraints:
+  - A new failing test that asserts the error message and exit code must appear before any production-code change.
+  - Only one new behavior per RED-GREEN cycle.
+  - All tests pass at end of run.
+  - Test and production changes are committed together.
+holdout: false
+tags:
+  - cli
+  - validation
+notes: |
+  Exercises validation-edge handling on top of a baseline that already
+  exits 2 on non-integers but does not surface the offending value.

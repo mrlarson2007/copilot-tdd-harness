@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0.0",
+  "fixtureId": "calculator-cli-go",
+  "baselineId": "clean",
+  "scenarioId": "feature-add-subtract-command",
+  "scenarioFamily": "feature",
+  "runMode": "micro-cycle",
+  "prompt": "Add a \"subtract\" subcommand to the calc CLI...",
+  "phaseTransitions": [
+    { "phase": "RED", "source": "test-run", "atTestRunIndex": 0 },
+    { "phase": "GREEN", "source": "test-run", "atTestRunIndex": 1 },
+    { "phase": "COMMIT", "source": "commit", "ref": "abc123" }
+  ],
+  "clarificationAsked": false,
+  "newTestsAdded": 1,
+  "productionFilesChanged": 1,
+  "productionChangedBeforeFirstFailingTest": false,
+  "testsPassedAtEnd": true,
+  "testRunCount": 2,
+  "firstFailingTestName": "TestSubtract_PrintsDifference",
+  "commitCount": 1,
+  "testAndCodeCommittedTogether": true,
+  "coverageDelta": null,
+  "failureModes": [],
+  "notes": "Synthetic exemplar of a clean RED-GREEN-COMMIT cycle for assertion development."
+}

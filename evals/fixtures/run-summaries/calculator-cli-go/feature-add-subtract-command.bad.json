@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0.0",
+  "fixtureId": "calculator-cli-go",
+  "baselineId": "clean",
+  "scenarioId": "feature-add-subtract-command",
+  "scenarioFamily": "feature",
+  "runMode": "micro-cycle",
+  "prompt": "Add a \"subtract\" subcommand to the calc CLI...",
+  "phaseTransitions": [
+    { "phase": "GREEN", "source": "edit" },
+    { "phase": "COMMIT", "source": "commit", "ref": "def456" }
+  ],
+  "clarificationAsked": false,
+  "newTestsAdded": 0,
+  "productionFilesChanged": 1,
+  "productionChangedBeforeFirstFailingTest": true,
+  "testsPassedAtEnd": true,
+  "testRunCount": 1,
+  "commitCount": 1,
+  "testAndCodeCommittedTogether": false,
+  "coverageDelta": null,
+  "failureModes": [
+    "production-before-red",
+    "no-failing-test-observed",
+    "test-and-code-split-commit"
+  ],
+  "notes": "Synthetic exemplar of a TDD-violating run: production code added without a prior failing test and committed without any test."
+}
