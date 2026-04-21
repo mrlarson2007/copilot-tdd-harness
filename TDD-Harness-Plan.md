@@ -36,6 +36,7 @@ The full monolithic reference has been preserved at:
 ## Architecture (Cross-Cutting)
 
 ```
+Repository Governance              .github/settings.yml
 Layer 1: Always-On Rules          .github/instructions/tdd-constitution.instructions.md
 Layer 2: Project Configuration    .github/tdd-config.json
                                   .github/instructions/tdd-patterns.instructions.md
