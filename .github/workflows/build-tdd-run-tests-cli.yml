@@ -11,6 +11,9 @@ on:
       - "scripts/tdd-run-tests.ps1"
       - ".github/workflows/build-tdd-run-tests-cli.yml"
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
