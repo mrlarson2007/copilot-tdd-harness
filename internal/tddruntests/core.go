@@ -56,8 +56,8 @@ var (
 		regexp.MustCompile(`(?m)^\s*✕\s+(.+)$`),
 		regexp.MustCompile(`(?m)^\s*\d+\)\s+(.+)$`),
 	}
-	expectedPattern = regexp.MustCompile(`(?im)expected[:\s]+(.+)$`)
-	actualPattern   = regexp.MustCompile(`(?im)(received|actual)[:\s]+(.+)$`)
+	expectedPattern = regexp.MustCompile(`(?im)expected[:\s]+([^\r\n]+)`)
+	actualPattern   = regexp.MustCompile(`(?im)(received|actual)[:\s]+([^\r\n]+)`)
 )
 
 func ParseMode(value string) (Mode, bool) {

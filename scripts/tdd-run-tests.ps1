@@ -40,7 +40,7 @@ if (Test-Path $binaryPath) {
 if (Get-Command go -ErrorAction SilentlyContinue) {
     Push-Location $repoRoot
     try {
-        go run ./cmd/tdd-run-tests --mode $Mode
+        go run ./cmd/tdd-run-tests $Mode
     }
     finally {
         Pop-Location

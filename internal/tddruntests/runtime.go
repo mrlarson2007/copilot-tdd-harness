@@ -52,33 +52,6 @@ func detectTestCommand(repoRoot string) string {
 		_, err := os.Stat(filepath.Join(repoRoot, path))
 		return err == nil
 	}
-	findByNameWithinDepth := func(names map[string]struct{}, maxDepth int) bool {
-		found := false
-		_ = filepath.WalkDir(repoRoot, func(path string, d os.DirEntry, err error) error {
-			if err != nil || found {
-				return nil
-			}
-			rel, relErr := filepath.Rel(repoRoot, path)
-			if relErr != nil || rel == "." {
-				return nil
-			}
-			depth := strings.Count(rel, string(filepath.Separator))
-			if d.IsDir() {
-				if depth > maxDepth {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-			if depth <= maxDepth {
-				if _, ok := names[d.Name()]; ok {
-					found = true
-				}
-			}
-			return nil
-		})
-		return found
-	}
-
 	if findBySuffixWithinDepth(repoRoot, []string{".sln", ".csproj"}, 2) {
 		return "dotnet test"
 	}
@@ -96,16 +69,43 @@ func detectTestCommand(repoRoot string) string {
 		}
 	}
 
-	if findByNameWithinDepth(map[string]struct{}{"pyproject.toml": {}, "requirements.txt": {}, "setup.py": {}}, 2) {
+	if findByNameWithinDepth(repoRoot, map[string]struct{}{"pyproject.toml": {}, "requirements.txt": {}, "setup.py": {}}, 2) {
 		return "pytest"
 	}
 	if fileExists("pom.xml") {
 		return "mvn test"
 	}
-	if findByNameWithinDepth(map[string]struct{}{"build.gradle": {}, "build.gradle.kts": {}}, 2) {
+	if findByNameWithinDepth(repoRoot, map[string]struct{}{"build.gradle": {}, "build.gradle.kts": {}}, 2) {
 		return "./gradlew test"
 	}
 	return ""
+}
+
+func findByNameWithinDepth(repoRoot string, names map[string]struct{}, maxDepth int) bool {
+	found := false
+	_ = filepath.WalkDir(repoRoot, func(path string, d os.DirEntry, err error) error {
+		if err != nil || found {
+			return nil
+		}
+		rel, relErr := filepath.Rel(repoRoot, path)
+		if relErr != nil || rel == "." {
+			return nil
+		}
+		depth := strings.Count(rel, string(filepath.Separator))
+		if d.IsDir() {
+			if depth > maxDepth {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if depth <= maxDepth {
+			if _, ok := names[d.Name()]; ok {
+				found = true
+			}
+		}
+		return nil
+	})
+	return found
 }
 
 func findBySuffixWithinDepth(repoRoot string, suffixes []string, maxDepth int) bool {
