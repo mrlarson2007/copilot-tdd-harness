@@ -27,7 +27,7 @@ fi
 
 if command -v go >/dev/null 2>&1; then
   cd "$repo_root"
-  exec go run ./cmd/tdd-run-tests --mode "$mode"
+  exec go run ./cmd/tdd-run-tests "$mode"
 fi
 
 cat <<EOF

@@ -1,4 +1,5 @@
 param(
+    [ValidateSet("hint", "step", "terminal", "state", "status")]
     [string]$Mode = "status"
 )
 
