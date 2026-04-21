@@ -38,6 +38,8 @@ This file contains the detailed implementation content for this single GitHub is
 
 All modes emit structured JSON via `additionalContext`. Raw test output is never passed to the model.
 
+Implementation note: `scripts/tdd-run-tests.sh` and `scripts/tdd-run-tests.ps1` are thin wrappers that delegate to the cross-platform Go CLI (`cmd/tdd-run-tests`). This keeps the hook contract unchanged while allowing Linux/macOS/Windows artifacts to be built in CI via `.github/workflows/build-tdd-run-tests-cli.yml`.
+
 **Step reward (PostToolUse)**:
 ```json
 {
@@ -98,4 +100,3 @@ or when blocking:
   "additionalContext": "TDD STATE: phase=GREEN | test=WhenInvalidPassword_ShouldReturnUnauthorized | lastReflexion=Password validation not yet implemented | passed=14 | failed=1"
 }
 ```
-

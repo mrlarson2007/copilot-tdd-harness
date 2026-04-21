@@ -1,0 +1,46 @@
+name: Build tdd-run-tests CLI
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "cmd/tdd-run-tests/**"
+      - "internal/tddruntests/**"
+      - "go.mod"
+      - "scripts/tdd-run-tests.sh"
+      - "scripts/tdd-run-tests.ps1"
+      - ".github/workflows/build-tdd-run-tests-cli.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            artifact: tdd-run-tests-linux-amd64
+          - goos: darwin
+            goarch: amd64
+            artifact: tdd-run-tests-darwin-amd64
+          - goos: windows
+            goarch: amd64
+            artifact: tdd-run-tests-windows-amd64.exe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+      - name: Build
+        run: |
+          mkdir -p dist
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o dist/${{ matrix.artifact }} ./cmd/tdd-run-tests
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}

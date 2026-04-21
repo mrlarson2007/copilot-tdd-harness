@@ -43,6 +43,7 @@ Layer 2: Project Configuration    .github/tdd-config.json
 Layer 3: Phase Agents             .github/agents/tdd-{red,green,commit,refactor}.agent.md
 Layer 4: Lifecycle Hooks          .github/hooks/tdd-enforcement.json
                                   scripts/tdd-run-tests.{ps1,sh}
+                                  cmd/tdd-run-tests (Go CLI)
 Layer 5: On-Demand Access         .github/skills/tdd-workflow/SKILL.md
                                   .github/skills/tdd-setup/SKILL.md
                                   .github/prompts/tdd-{start,status}.prompt.md
