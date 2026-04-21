@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: |
+  TDD agent benchmark matrix (v1). Scores deterministic protocol-fidelity
+  signals over run-summary JSON artifacts produced by the harness runner.
+
+  For now, the benchmark-provider reads pre-produced run-summary JSON files
+  from evals/fixtures/run-summaries/ so the scoring layer can be exercised
+  end-to-end before the agent runner is wired up. Each `tests` entry models
+  one scenario from one baseline.
+
+providers:
+  - file://./benchmark-provider.js
+
+prompts:
+  - file://./prompt.txt
+
+tests:
+  - description: calculator-cli-go feature-add-subtract-command (clean RED-GREEN-COMMIT exemplar)
+    threshold: 1
+    vars:
+      fixtureId: calculator-cli-go
+      scenarioId: feature-add-subtract-command
+      scenarioFamily: feature
+      runMode: micro-cycle
+      clarificationExpected: false
+      summaryPath: evals/fixtures/run-summaries/calculator-cli-go/feature-add-subtract-command.good.json
+    assert:
+      - type: javascript
+        value: file://./assertions/run-summary-shape.js
+        metric: schema_shape
+      - type: javascript
+        value: file://./assertions/protocol-fidelity.js
+        metric: protocol_fidelity
+      - type: javascript
+        value: file://./assertions/commit-quality.js
+        metric: commit_quality
+      - type: javascript
+        value: file://./assertions/clarification-expected.js
+        metric: clarification
+
+  # Negative exemplar: this run violated TDD discipline. We assert that the
+  # scoring layer detects the expected violation signal.
+  - description: calculator-cli-go feature-add-subtract-command (TDD violation exemplar)
+    threshold: 1
+    vars:
+      fixtureId: calculator-cli-go
+      scenarioId: feature-add-subtract-command
+      scenarioFamily: feature
+      runMode: micro-cycle
+      clarificationExpected: false
+      summaryPath: evals/fixtures/run-summaries/calculator-cli-go/feature-add-subtract-command.bad.json
+    assert:
+      - type: javascript
+        value: file://./assertions/run-summary-shape.js
+        metric: schema_shape
+      - type: javascript
+        value: file://./assertions/detects-production-before-red.js
+        metric: detects_violation
+
+commandLineOptions:
+  cache: false
+  table: true
+
+outputPath: ./results/promptfoo-benchmark.json

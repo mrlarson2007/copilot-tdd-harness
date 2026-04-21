@@ -1,0 +1,44 @@
+# Scenario manifest schema (v1, informal)
+#
+# Each scenario file describes a single evaluation unit:
+#   one scenario from one known baseline.
+#
+# Required fields:
+#   id                  Stable identifier within the fixture.
+#   fixtureId           Matches a directory under samples/.
+#   baselineId          Identifier for the clean snapshot to start from.
+#   family              One of: feature | validation | bug-fix |
+#                       refactor-only | ambiguous | longitudinal
+#   runMode             One of: micro-cycle | longitudinal
+#   prompt              User prompt sent to the agent (verbatim).
+#   clarificationExpected  Whether the agent should ask for clarification
+#                          before producing code.
+#   expectedConstraints Human-readable list of TDD constraints to hold.
+#   holdout             true if this scenario is reserved for benchmark
+#                       reporting (do not tune prompts against it).
+#
+# Optional fields:
+#   tags                Free-form labels.
+#   notes               Human notes for scenario authors.
+id: feature-add-divisible-by-seven
+fixtureId: fizzbuzz-go
+baselineId: clean
+family: feature
+runMode: micro-cycle
+prompt: |
+  Extend FizzBuzz so that numbers divisible by 7 (but not by 3 or 5) return
+  "Bazz". Numbers divisible by 3 and 7 should return "FizzBazz". Numbers
+  divisible by 5 and 7 should return "BuzzBazz". Numbers divisible by 3, 5,
+  and 7 should return "FizzBuzzBazz". Existing behavior must continue to
+  pass.
+clarificationExpected: false
+expectedConstraints:
+  - A new failing test must appear before any production-code change.
+  - Only one new behavior per RED-GREEN cycle.
+  - All tests pass at end of run.
+  - Test and production changes are committed together.
+holdout: false
+tags:
+  - smoke
+notes: |
+  Smoke-level scenario only. Do not over-index on fizzbuzz fidelity.

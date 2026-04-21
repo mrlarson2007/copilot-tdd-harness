@@ -14,6 +14,7 @@ const (
 	ModeTerminal Mode = "terminal"
 	ModeState    Mode = "state"
 	ModeStatus   Mode = "status"
+	ModeEval     Mode = "eval"
 )
 
 type State struct {
@@ -70,6 +71,8 @@ func ParseMode(value string) (Mode, bool) {
 		return ModeTerminal, true
 	case string(ModeState):
 		return ModeState, true
+	case string(ModeEval):
+		return ModeEval, true
 	case string(ModeStatus), "":
 		return ModeStatus, true
 	default:
@@ -284,11 +287,34 @@ func BuildPayload(mode Mode, input PayloadInput) map[string]any {
 			"testWorkingDir":        input.TestWorkingDir,
 			"testExitCode":          input.State.TestExitCode,
 		}
+	case ModeEval:
+		failingTests := []string{}
+		if input.State.Failed > 0 {
+			failingTests = append(failingTests, input.State.FirstFailureTest)
+		}
+		return map[string]any{
+			"event":                 "Evaluation",
+			"framework":             "promptfoo",
+			"phase":                 input.Phase,
+			"phaseConstraint":       input.PhaseConstraint,
+			"passed":                input.State.Passed,
+			"failed":                input.State.Failed,
+			"failingTests":          failingTests,
+			"expected":              input.State.Expected,
+			"actual":                input.State.Actual,
+			"likelyCause":           input.State.LikelyCause,
+			"reflexion":             input.State.Reflexion,
+			"lastCommittedBehavior": input.LastCommitted,
+			"recommendedNextAction": input.RecommendedNext,
+			"testCommand":           input.TestCommand,
+			"testWorkingDir":        input.TestWorkingDir,
+			"testExitCode":          input.State.TestExitCode,
+		}
 	default:
 		return map[string]any{
 			"event":    "Error",
 			"decision": "continue",
-			"message":  "Unsupported mode: " + string(mode) + ". Supported modes are hint, step, terminal, state, status.",
+			"message":  "Unsupported mode: " + string(mode) + ". Supported modes are hint, step, terminal, state, status, eval.",
 		}
 	}
 }

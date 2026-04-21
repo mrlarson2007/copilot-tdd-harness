@@ -94,3 +94,41 @@ func TestResolveStopHookActive_WhenSetToYes_ShouldEnableGuard(t *testing.T) {
 		t.Fatal("expected yes to enable stop hook guard")
 	}
 }
+
+func TestBuildPayload_WhenModeEval_ShouldEmitPromptfooSchema(t *testing.T) {
+	payload := BuildPayload(Mode("eval"), PayloadInput{
+		Phase:           "GREEN",
+		PhaseConstraint: "write only the minimal production code needed to make the failing test pass.",
+		State: State{
+			Passed:           3,
+			Failed:           1,
+			FirstFailureTest: "WhenInputIsZero_ShouldReturnErr",
+			Expected:         "1",
+			Actual:           "0",
+			LikelyCause:      "assertion mismatch indicates current behavior differs from test expectation",
+			Reflexion:        "REFLEXION: WhenInputIsZero_ShouldReturnErr failed.",
+			TestExitCode:     1,
+		},
+		LastCommitted:   "GREEN: handle zero input",
+		RecommendedNext: "Continue GREEN phase: make the failing test pass with the minimal production change.",
+		TestCommand:     "go test ./...",
+		TestWorkingDir:  ".",
+	})
+
+	if payload["event"] != "Evaluation" {
+		t.Fatalf("expected Evaluation event, got %v", payload["event"])
+	}
+	if payload["framework"] != "promptfoo" {
+		t.Fatalf("expected promptfoo framework, got %v", payload["framework"])
+	}
+	if payload["phase"] != "GREEN" {
+		t.Fatalf("expected GREEN phase, got %v", payload["phase"])
+	}
+	failingTests := payload["failingTests"].([]string)
+	if len(failingTests) != 1 || failingTests[0] != "WhenInputIsZero_ShouldReturnErr" {
+		t.Fatalf("unexpected failing tests payload: %#v", failingTests)
+	}
+	if payload["recommendedNextAction"] == "" {
+		t.Fatal("expected recommended next action in eval payload")
+	}
+}

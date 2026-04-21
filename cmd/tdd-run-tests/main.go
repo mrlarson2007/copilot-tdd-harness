@@ -16,7 +16,7 @@ func main() {
 		writeJSON(map[string]any{
 			"event":    "Error",
 			"decision": "continue",
-			"message":  "Unsupported mode: " + strings.TrimSpace(modeValue) + ". Supported modes are hint, step, terminal, state, status.",
+			"message":  "Unsupported mode: " + strings.TrimSpace(modeValue) + ". Supported modes are hint, step, terminal, state, status, eval.",
 		})
 		return
 	}

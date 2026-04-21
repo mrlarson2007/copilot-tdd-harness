@@ -1,0 +1,23 @@
+id: feature-add-subtract-command
+fixtureId: calculator-cli-go
+baselineId: clean
+family: feature
+runMode: micro-cycle
+prompt: |
+  Add a "subtract" subcommand to the calc CLI. It must accept exactly two
+  integer arguments and print "a - b" on stdout. Unknown commands and
+  malformed arguments must continue to exit with code 2. Existing "add"
+  behavior must continue to pass.
+clarificationExpected: false
+expectedConstraints:
+  - A new failing test for "subtract" must appear before any production-code change.
+  - Only one new behavior per RED-GREEN cycle.
+  - All tests pass at end of run.
+  - Test and production changes are committed together.
+  - Existing "add" tests remain green throughout.
+holdout: false
+tags:
+  - cli
+  - feature
+notes: |
+  First "real" CLI feature scenario for the benchmark matrix.
