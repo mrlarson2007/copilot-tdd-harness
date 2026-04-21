@@ -30,6 +30,7 @@ The full monolithic reference has been preserved at:
 - [Issue #7 - safe install scripts](docs/issue-plans/issue-7-safe-install-scripts.md)
 - [Issue #8 - verification suite](docs/issue-plans/issue-8-verification-suite.md)
 - [Issue #9 - agent plugin packaging](docs/issue-plans/issue-9-agent-plugin-packaging.md)
+- [Issue #10 - eval plan for TDD agent behavior](docs/issue-plans/issue-10-eval-plan-for-tdd-agent-behavior.md)
 
 ---
 
