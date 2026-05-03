@@ -68,9 +68,9 @@ if (-not (Test-Path $configFile)) {
         $testCommand = "dotnet test"
     } elseif (Test-Path (Join-Path $targetDir "package.json")) {
         $pkg = Get-Content (Join-Path $targetDir "package.json") -Raw
-        if ($pkg -match '"jest"') {
+        if ($pkg -match '"jest"\s*:') {
             $testCommand = "npm test"
-        } elseif ($pkg -match '"vitest"') {
+        } elseif ($pkg -match '"vitest"\s*:') {
             $testCommand = "npx vitest"
         }
     } elseif ((Test-Path (Join-Path $targetDir "pyproject.toml")) -or

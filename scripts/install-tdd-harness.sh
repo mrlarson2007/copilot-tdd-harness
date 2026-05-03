@@ -56,9 +56,9 @@ if [ ! -e "$config_file" ]; then
        compgen -G "${TARGET_DIR}/*.csproj" > /dev/null 2>&1; then
         test_command="dotnet test"
     elif [ -f "${TARGET_DIR}/package.json" ]; then
-        if grep -q '"jest"' "${TARGET_DIR}/package.json"; then
+        if grep -q '"jest"\s*:' "${TARGET_DIR}/package.json"; then
             test_command="npm test"
-        elif grep -q '"vitest"' "${TARGET_DIR}/package.json"; then
+        elif grep -q '"vitest"\s*:' "${TARGET_DIR}/package.json"; then
             test_command="npx vitest"
         fi
     elif [ -f "${TARGET_DIR}/pyproject.toml" ] || [ -f "${TARGET_DIR}/setup.py" ]; then
