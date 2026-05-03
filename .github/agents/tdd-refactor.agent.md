@@ -1,5 +1,6 @@
 ---
 name: tdd-refactor
+hidden: true
 description: >
   REFACTOR phase: improve code quality while preserving behavior. Make no
   functional changes and keep tests green throughout. Hand off to tdd-commit

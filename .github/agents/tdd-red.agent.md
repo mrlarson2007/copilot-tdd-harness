@@ -1,5 +1,6 @@
 ---
 name: tdd-red
+hidden: true
 description: >
   RED phase: write exactly one new failing test for the next behavior.
   Do not change production code. Hand off to tdd-green after confirming
