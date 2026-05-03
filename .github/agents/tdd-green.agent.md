@@ -1,5 +1,6 @@
 ---
 name: tdd-green
+hidden: true
 description: >
   GREEN phase: implement the smallest production change needed to pass the
   single failing test from RED. Keep all tests green and avoid refactoring.

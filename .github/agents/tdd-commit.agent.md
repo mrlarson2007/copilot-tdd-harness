@@ -1,5 +1,6 @@
 ---
 name: tdd-commit
+hidden: true
 description: >
   COMMIT phase: commit test and production changes together for one completed
   behavior. Then hand off to tdd-refactor if cleanup is needed, otherwise
