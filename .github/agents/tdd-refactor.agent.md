@@ -1,6 +1,6 @@
 ---
 name: tdd-refactor
-hidden: true
+user-invocable: false
 description: >
   REFACTOR phase: improve code quality while preserving behavior. Make no
   functional changes and keep tests green throughout. Hand off to tdd-commit
@@ -14,7 +14,7 @@ agents:
   - tdd-commit
 handoffs:
   - agent: tdd-commit
-    condition: "refactoring complete and all tests still pass"
+    label: "Refactoring complete and all tests still pass"
 ---
 
 PHASE: REFACTOR

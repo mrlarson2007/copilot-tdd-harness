@@ -1,6 +1,6 @@
 ---
 name: tdd-red
-hidden: true
+user-invocable: false
 description: >
   RED phase: write exactly one new failing test for the next behavior.
   Do not change production code. Hand off to tdd-green after confirming
@@ -14,7 +14,7 @@ agents:
   - tdd-green
 handoffs:
   - agent: tdd-green
-    condition: "exactly one new failing test exists and all prior tests still pass"
+    label: "Exactly one new failing test exists and all prior tests still pass"
 ---
 
 PHASE: RED

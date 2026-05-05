@@ -1,6 +1,6 @@
 ---
 name: tdd-commit
-hidden: true
+user-invocable: false
 description: >
   COMMIT phase: commit test and production changes together for one completed
   behavior. Then hand off to tdd-refactor if cleanup is needed, otherwise
@@ -12,9 +12,9 @@ agents:
   - tdd-red
 handoffs:
   - agent: tdd-refactor
-    condition: "refactoring is needed (duplication, clarity, design)"
+    label: "Refactoring needed (duplication, clarity, design)"
   - agent: tdd-red
-    condition: "no refactoring needed; ready for next behavior"
+    label: "No refactoring needed — ready for next behavior"
 ---
 
 PHASE: COMMIT

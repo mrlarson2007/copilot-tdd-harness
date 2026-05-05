@@ -1,6 +1,6 @@
 ---
 name: tdd-green
-hidden: true
+user-invocable: false
 description: >
   GREEN phase: implement the smallest production change needed to pass the
   single failing test from RED. Keep all tests green and avoid refactoring.
@@ -15,12 +15,13 @@ agents:
   - tdd-commit
 handoffs:
   - agent: tdd-commit
-    condition: "all tests pass including the new one"
+    label: "All tests pass including the new one"
 hooks:
   Stop:
-    - command: "scripts/tdd-run-tests.{ps1,sh}"
-      decision: "block"
-      message: "All tests must pass before leaving GREEN phase."
+    - type: command
+      windows: "powershell -File scripts\\tdd-run-tests.ps1"
+      linux: "scripts/tdd-run-tests.sh"
+      osx: "scripts/tdd-run-tests.sh"
 ---
 
 PHASE: GREEN
