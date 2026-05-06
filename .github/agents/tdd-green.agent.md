@@ -16,6 +16,7 @@ agents:
 handoffs:
   - agent: tdd-commit
     label: "All tests pass including the new one"
+    prompt: "The GREEN phase is confirmed. All tests are passing including the new RED test. Commit the test and production changes together in a single behavior-focused commit."
 hooks:
   Stop:
     - type: command

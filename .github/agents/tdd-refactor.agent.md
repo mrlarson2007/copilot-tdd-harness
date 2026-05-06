@@ -15,6 +15,7 @@ agents:
 handoffs:
   - agent: tdd-commit
     label: "Refactoring complete and all tests still pass"
+    prompt: "The REFACTOR phase is confirmed. All tests are still passing and code quality has been improved. Commit the refactoring changes."
 ---
 
 PHASE: REFACTOR

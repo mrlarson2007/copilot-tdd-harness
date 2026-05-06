@@ -15,6 +15,7 @@ agents:
 handoffs:
   - agent: tdd-green
     label: "Exactly one new failing test exists and all prior tests still pass"
+    prompt: "The RED phase is confirmed. Exactly one new test is failing for the correct behavioral reason and all prior tests still pass. Implement the smallest production change needed to make this test pass."
 ---
 
 PHASE: RED

@@ -13,8 +13,10 @@ agents:
 handoffs:
   - agent: tdd-refactor
     label: "Refactoring needed (duplication, clarity, design)"
+    prompt: "The behavior has been committed. Refactoring is warranted — improve code quality without changing any externally observable behavior. Keep tests green throughout."
   - agent: tdd-red
     label: "No refactoring needed — ready for next behavior"
+    prompt: "The behavior has been committed and no refactoring is needed. Write exactly one new failing test for the next behavior."
 ---
 
 PHASE: COMMIT
