@@ -11,8 +11,7 @@ The full monolithic reference has been preserved at:
 
 - [Full plan archive](docs/TDD-Harness-Plan.full.md)
 
-The archive preserves the original multi-agent and hooks-first design. The
-shipped harness has since been consolidated into a single opt-in `tdd` agent.
+The archive preserves the original multi-agent and hooks-first design. The shipped harness has since been consolidated into a single opt-in `tdd` agent.
 
 ## How To Use
 
@@ -31,9 +30,9 @@ shipped harness has since been consolidated into a single opt-in `tdd` agent.
 - [Issue #4 - phase agents and handoffs](docs/issue-plans/issue-4-phase-agents-and-handoffs.md)
 - [Issue #5 - lifecycle hooks and test reward](docs/issue-plans/issue-5-lifecycle-hooks-and-test-reward.md)
 - [Issue #6 - prompt files](docs/issue-plans/issue-6-prompt-files.md)
-- [Issue #7 - safe install scripts](docs/issue-plans/issue-7-safe-install-scripts.md)
-- [Issue #8 - verification suite](docs/issue-plans/issue-8-verification-suite.md)
-- [Issue #9 - agent plugin packaging](docs/issue-plans/issue-9-agent-plugin-packaging.md)
+- [Issue #7 - safe install scripts (historical)](docs/issue-plans/issue-7-safe-install-scripts.md)
+- [Issue #8 - verification suite (historical)](docs/issue-plans/issue-8-verification-suite.md)
+- [Issue #9 - true CI pipeline and gated publishing](docs/issue-plans/issue-9-agent-plugin-packaging.md)
 
 ---
 
@@ -42,18 +41,17 @@ shipped harness has since been consolidated into a single opt-in `tdd` agent.
 ```text
 Repository Governance              .github/settings.yml
 Layer 1: Always-On Rules          .github/instructions/tdd-constitution.instructions.md
-Layer 2: Project Configuration    .github/tdd-config.json
-                                  .github/instructions/tdd-patterns.instructions.md
-Layer 3: Main Agent               .github/agents/tdd.agent.md
-Layer 4: Runtime Helpers          .github/bin/tdd-run-tests-<os>-<arch>[.exe]
-                                  cmd/tdd-run-tests (Go CLI source)
-Layer 5: On-Demand Access         .github/skills/tdd-workflow/SKILL.md
-                                  .github/skills/tdd-setup/SKILL.md
+Layer 2: Project Instructions     .github/instructions/tdd-patterns.instructions.md
+Layer 3: Main Agent Source        plugin/.github/agents/tdd.agent.md
+                                  installed into target .github/agents/
+Layer 4: On-Demand Access         plugin/.github/skills/tdd-workflow/SKILL.md
+                                  plugin/.github/skills/tdd-setup/SKILL.md
 ```
 
 ## Notes
 
 - Source of truth for implementation detail is the issue-specific docs.
 - This index intentionally avoids phase-by-phase build instructions.
-- Issue plan docs for prompts, hooks, and phase handoffs are retained as
-    historical design notes and no longer describe the shipped harness.
+- Issue plan docs for prompts, hooks, and phase handoffs are retained as historical design notes and no longer describe the shipped harness.
+- Packaged agent assets live under `plugin/.github/`; target projects receive those files in their own `.github/` folder during installation.
+- The shipped single-agent harness relies on generated project instructions instead of a separate JSON config or runtime CLI binary.

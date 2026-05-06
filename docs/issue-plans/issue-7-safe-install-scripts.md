@@ -2,13 +2,25 @@
 
 This file contains the detailed implementation content for this single GitHub issue, extracted from the master plan.
 
+## Status
+
+Historical. The install scripts were implemented and later simplified for the
+single-agent design.
+
+Current install behavior:
+
+- copies packaged agent and skill assets from `plugin/.github`
+- never writes `.github/tdd-config.json`
+- never installs a runtime CLI binary
+- instructs the user to run `tdd-setup` to generate project-specific TDD instructions
+
 ## Phase 6 — Install Scripts ([#7](https://github.com/mrlarson2007/copilot-tdd-harness/issues/7))
 
 ### install-tdd-harness.ps1 / install-tdd-harness.sh
 
 **Safety contract**: Never overwrites existing files. Prints `SKIP: <file> — already exists, merge manually` for conflicts.
 
-```
+```text
 Install sequence:
 1. Create .github/ subdirectories if missing
 2. Copy each file; SKIP if already exists
@@ -20,6 +32,7 @@ Install sequence:
 ```
 
 Auto-detection priority:
+
 1. `*.sln` or `*.csproj` present → `dotnet test`
 2. `package.json` with `jest` dependency → `npm test`
 3. `package.json` with `vitest` dependency → `npx vitest`
@@ -28,3 +41,4 @@ Auto-detection priority:
 6. `build.gradle` → `./gradlew test`
 7. None detected → leave `testCommand` blank, prompt user to set it
 
+Historical reference only.

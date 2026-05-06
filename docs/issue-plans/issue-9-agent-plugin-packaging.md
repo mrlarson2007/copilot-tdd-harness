@@ -1,39 +1,65 @@
 # Detailed Issue Plan
 
-This file contains the detailed implementation content for this single GitHub issue, extracted from the master plan.
+This file contains the active implementation content for the current GitHub issue.
 
-## Phase 7 — Agent Plugin Packaging ([#9](https://github.com/mrlarson2007/copilot-tdd-harness/issues/9))
+## Phase 7 — True CI Pipeline and Gated Publishing ([#9](https://github.com/mrlarson2007/copilot-tdd-harness/issues/9))
 
-Package the harness as a VS Code Agent Plugin so it installs with a single command and is discoverable in the `@agentPlugins` Extensions view. The plugin format is shared by VS Code, GitHub Copilot CLI, and Claude Code.
+Implement a real CI pipeline that evaluates the packaged harness against example
+projects with promptfoo and only publishes when the gated score is met on the
+default branch.
 
-### plugin.json (repo root)
+## Goals
 
-```json
-{
-  "name": "copilot-tdd-harness",
-  "description": "Enforces the RED→GREEN→COMMIT→REFACTOR TDD workflow using hooks, agents, skills, and prompt files.",
-  "version": "0.1.0",
-  "author": { "name": "mrlarson2007" },
-  "skills": ".github/skills/",
-  "agents": ".github/agents/",
-  "hooks": ".github/hooks/tdd-enforcement.json"
-}
-```
+- Run promptfoo evals against example projects in CI.
+- Execute each scenario in a disposable git worktree reset to the branch base.
+- Allow scenarios to create real local commits while being evaluated.
+- Publish the package only from the default branch and only when the score clears the gate.
+- Run eval-only on non-default branches.
 
-### Distribution Channels
+## Desired CI Behavior
 
-| Channel | How | Audience |
-|---------|-----|---------|
-| Git URL install | `Chat: Install Plugin From Source` → `https://github.com/mrlarson2007/copilot-tdd-harness` | Any VS Code user |
-| GitHub Copilot CLI | `gh copilot plugin install https://github.com/mrlarson2007/copilot-tdd-harness` | CLI users |
-| `copilot-plugins` marketplace | Submit `marketplace.json` to `github/copilot-plugins` | Discoverable via `@agentPlugins` in Extensions view |
-| NuGet content package | `dotnet add package copilot-tdd-harness` drops files into `.github/` via content files | .NET teams |
+### Pull requests and non-default branches
 
-### marketplace.json Entry
+- Check out the branch under test.
+- Reset each example scenario to the merge-base or other chosen branch base before the run.
+- Run the promptfoo suite.
+- Upload run summaries, scores, and artifacts.
+- Do not publish any package.
 
-Added to the `github/copilot-plugins` or `github/awesome-copilot` repo to make the plugin discoverable under `@agentPlugins` in the VS Code Extensions view.
+### Default branch
 
-### NuGet Content Package
+- Re-run the promptfoo suite from a clean baseline.
+- Require the configured minimum score before any publish step.
+- If the score passes, package the harness assets and publish.
+- If the score fails, fail the workflow and skip publish.
 
-`copilot-tdd-harness.nuspec` packages all `.github/**` skill/agent/hook files as NuGet content files. On `dotnet add package copilot-tdd-harness`, these are restored into the target project's `.github/` directory. The project can then register the path via `chat.pluginLocations` in VS Code settings.
+## Implementation Outline
 
+1. Build an eval runner that prepares disposable worktrees per example fixture.
+2. Ensure each eval run starts from the branch base, not a dirty prior state.
+3. Allow the evaluated agent flow to create real commits inside the disposable worktree.
+4. Collect promptfoo outputs plus git history artifacts for scoring and audit.
+5. Add CI workflow separation:
+   - eval workflow for branches and pull requests
+   - publish workflow for default branch only
+6. Define the publishable artifact format and versioning source.
+7. Gate the publish workflow on the promptfoo threshold.
+
+## Acceptance Criteria
+
+- [ ] Branch and PR CI run promptfoo evals against the example suite.
+- [ ] Each example run starts from a clean branch-base snapshot.
+- [ ] Eval runs are allowed to create local commits in disposable worktrees.
+- [ ] CI stores enough artifacts to inspect score, transcript, diffs, and commit history.
+- [ ] Default-branch CI skips publish when the promptfoo score is below the threshold.
+- [ ] Default-branch CI publishes the package when the score meets or exceeds the threshold.
+- [ ] Non-default branches never publish packages.
+- [ ] The pipeline documents where the score threshold is configured.
+
+## Open Decisions
+
+- What exact promptfoo score threshold should gate publish?
+- What artifact should be published: plugin package, release asset bundle, or both?
+- Should the branch base be `origin/master`, PR merge-base, or another explicit ref?
+
+This is the active issue-plan doc for the current CI pipeline work.
