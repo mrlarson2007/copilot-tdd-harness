@@ -8,7 +8,11 @@ Detailed build instructions are split into issue-specific files so implementatio
 ## Archived Full Plan
 
 The full monolithic reference has been preserved at:
+
 - [Full plan archive](docs/TDD-Harness-Plan.full.md)
+
+The archive preserves the original multi-agent and hooks-first design. The
+shipped harness has since been consolidated into a single opt-in `tdd` agent.
 
 ## How To Use
 
@@ -35,21 +39,21 @@ The full monolithic reference has been preserved at:
 
 ## Architecture (Cross-Cutting)
 
-```
+```text
 Repository Governance              .github/settings.yml
 Layer 1: Always-On Rules          .github/instructions/tdd-constitution.instructions.md
 Layer 2: Project Configuration    .github/tdd-config.json
                                   .github/instructions/tdd-patterns.instructions.md
-Layer 3: Phase Agents             .github/agents/tdd-{red,green,commit,refactor}.agent.md
-Layer 4: Lifecycle Hooks          .github/hooks/tdd-enforcement.json
-                                  scripts/tdd-run-tests.{ps1,sh}
-                                  cmd/tdd-run-tests (Go CLI)
+Layer 3: Main Agent               .github/agents/tdd.agent.md
+Layer 4: Runtime Helpers          .github/bin/tdd-run-tests-<os>-<arch>[.exe]
+                                  cmd/tdd-run-tests (Go CLI source)
 Layer 5: On-Demand Access         .github/skills/tdd-workflow/SKILL.md
                                   .github/skills/tdd-setup/SKILL.md
-                                  .github/prompts/tdd-{start,status}.prompt.md
 ```
 
 ## Notes
 
 - Source of truth for implementation detail is the issue-specific docs.
 - This index intentionally avoids phase-by-phase build instructions.
+- Issue plan docs for prompts, hooks, and phase handoffs are retained as
+    historical design notes and no longer describe the shipped harness.

@@ -7,8 +7,7 @@ on:
       - "cmd/tdd-run-tests/**"
       - "internal/tddruntests/**"
       - "go.mod"
-      - "scripts/tdd-run-tests.sh"
-      - "scripts/tdd-run-tests.ps1"
+      - ".github/bin/tdd-run-tests-*"
       - ".github/workflows/build-tdd-run-tests-cli.yml"
 
 permissions:
@@ -24,12 +23,21 @@ jobs:
           - goos: linux
             goarch: amd64
             artifact: tdd-run-tests-linux-amd64
+          - goos: linux
+            goarch: arm64
+            artifact: tdd-run-tests-linux-arm64
           - goos: darwin
             goarch: amd64
             artifact: tdd-run-tests-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            artifact: tdd-run-tests-darwin-arm64
           - goos: windows
             goarch: amd64
             artifact: tdd-run-tests-windows-amd64.exe
+          - goos: windows
+            goarch: arm64
+            artifact: tdd-run-tests-windows-arm64.exe
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

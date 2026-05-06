@@ -18,6 +18,20 @@ $targetDir  = (Resolve-Path $TargetDir).Path
 
 $installed = 0
 $skipped   = 0
+$obsolete  = 0
+
+$obsoleteFiles = @(
+    ".github\agents\tdd-red.agent.md",
+    ".github\agents\tdd-green.agent.md",
+    ".github\agents\tdd-commit.agent.md",
+    ".github\agents\tdd-refactor.agent.md",
+    ".github\prompts\tdd-start.prompt.md",
+    ".github\prompts\tdd-status.prompt.md",
+    ".github\hooks\tdd-enforcement.json",
+    "scripts\tdd-run-tests",
+    "scripts\tdd-run-tests.sh",
+    "scripts\tdd-run-tests.ps1"
+)
 
 function Install-File {
     param([string]$Src, [string]$Dst)
@@ -35,6 +49,30 @@ function Install-File {
     }
 }
 
+function Report-ObsoleteFile {
+    param([string]$RelativePath)
+
+    $dst = Join-Path $targetDir $RelativePath
+    if (Test-Path $dst) {
+        Write-Host "REMOVE: $dst — obsolete in the single-agent TDD harness"
+        $script:obsolete++
+    }
+}
+
+function Get-BinaryName {
+    $osName = if ($IsWindows) { "windows" } elseif ($IsMacOS) { "darwin" } else { "linux" }
+    $archName = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
+    if ($archName -eq "x64") { $archName = "amd64" }
+    if ($archName -eq "aarch64") { $archName = "arm64" }
+
+    $binaryName = "tdd-run-tests-$osName-$archName"
+    if ($osName -eq "windows") {
+        $binaryName += ".exe"
+    }
+
+    return $binaryName
+}
+
 # Install harness .github files, excluding repo-only files
 $githubSrc = Join-Path $harnessDir ".github"
 Get-ChildItem -Path $githubSrc -Recurse -File |
@@ -50,11 +88,20 @@ Get-ChildItem -Path $githubSrc -Recurse -File |
         Install-File -Src $_.FullName -Dst $dst
     }
 
-# Install run-tests wrapper scripts
-foreach ($script in @("tdd-run-tests.sh", "tdd-run-tests.ps1")) {
-    $src = Join-Path $harnessDir "scripts" $script
-    $dst = Join-Path $targetDir  "scripts" $script
-    Install-File -Src $src -Dst $dst
+foreach ($obsoleteFile in $obsoleteFiles) {
+    Report-ObsoleteFile -RelativePath $obsoleteFile
+}
+
+# Install platform CLI binary
+$binaryName = Get-BinaryName
+$binarySrc = Join-Path $harnessDir ".github\bin" $binaryName
+$binaryDst = Join-Path $targetDir ".github\bin" $binaryName
+
+if (Test-Path $binarySrc) {
+    Install-File -Src $binarySrc -Dst $binaryDst
+} else {
+    Write-Host "SKIP: $binaryDst — no bundled CLI binary available for this OS/architecture"
+    $script:skipped++
 }
 
 # Write tdd-config.json only if not already present
@@ -106,4 +153,7 @@ if (-not (Test-Path $configFile)) {
 
 Write-Host ""
 Write-Host "Install complete: $installed files installed, $skipped files skipped."
-Write-Host "Next steps: Run /tdd-setup in Copilot Chat to complete configuration."
+if ($obsolete -gt 0) {
+    Write-Host "Obsolete files detected: $obsolete. Remove the files listed above to finish upgrading to the single-agent TDD harness."
+}
+Write-Host "Next steps: Run /tdd-setup in Copilot Chat to complete configuration, then switch to the tdd agent when you want the workflow. The CLI binary is installed under .github\bin\."

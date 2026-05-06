@@ -15,6 +15,20 @@ TARGET_DIR="${1:-$(pwd)}"
 
 installed=0
 skipped=0
+obsolete=0
+
+obsolete_files=(
+    ".github/agents/tdd-red.agent.md"
+    ".github/agents/tdd-green.agent.md"
+    ".github/agents/tdd-commit.agent.md"
+    ".github/agents/tdd-refactor.agent.md"
+    ".github/prompts/tdd-start.prompt.md"
+    ".github/prompts/tdd-status.prompt.md"
+    ".github/hooks/tdd-enforcement.json"
+    "scripts/tdd-run-tests"
+    "scripts/tdd-run-tests.sh"
+    "scripts/tdd-run-tests.ps1"
+)
 
 install_file() {
     local src="$1"
@@ -30,6 +44,36 @@ install_file() {
     fi
 }
 
+report_obsolete_file() {
+    local rel="$1"
+    local dst="${TARGET_DIR}/${rel}"
+    if [ -e "$dst" ]; then
+        echo "REMOVE: $dst — obsolete in the single-agent TDD harness"
+        obsolete=$((obsolete + 1))
+    fi
+}
+
+current_os() {
+    local os_name
+    os_name="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    case "$os_name" in
+        mingw*|msys*|cygwin*) echo "windows" ;;
+        darwin*) echo "darwin" ;;
+        linux*) echo "linux" ;;
+        *) echo "$os_name" ;;
+    esac
+}
+
+current_arch() {
+    local arch_name
+    arch_name="$(uname -m)"
+    case "$arch_name" in
+        x86_64|amd64) echo "amd64" ;;
+        arm64|aarch64) echo "arm64" ;;
+        *) echo "$arch_name" ;;
+    esac
+}
+
 # Install harness .github files, excluding repo-only files
 while IFS= read -r -d '' src_file; do
     rel_path="${src_file#${HARNESS_DIR}/}"
@@ -41,10 +85,27 @@ done < <(find "${HARNESS_DIR}/.github" -type f \
     ! -path "*/bin/*" \
     -print0 | sort -z)
 
-# Install run-tests wrapper scripts
-for script in "tdd-run-tests.sh" "tdd-run-tests.ps1"; do
-    install_file "${HARNESS_DIR}/scripts/${script}" "${TARGET_DIR}/scripts/${script}"
+for rel in "${obsolete_files[@]}"; do
+    report_obsolete_file "$rel"
 done
+
+# Install platform CLI binary
+binary_os="$(current_os)"
+binary_arch="$(current_arch)"
+binary_name="tdd-run-tests-${binary_os}-${binary_arch}"
+if [ "$binary_os" = "windows" ]; then
+    binary_name="${binary_name}.exe"
+fi
+binary_src="${HARNESS_DIR}/.github/bin/${binary_name}"
+binary_dst="${TARGET_DIR}/.github/bin/${binary_name}"
+
+if [ -e "$binary_src" ]; then
+    install_file "$binary_src" "$binary_dst"
+    chmod +x "$binary_dst" 2>/dev/null || true
+else
+    echo "SKIP: ${binary_dst} — no bundled CLI binary available for ${binary_os}/${binary_arch}"
+    skipped=$((skipped + 1))
+fi
 
 # Write tdd-config.json only if not already present
 config_file="${TARGET_DIR}/.github/tdd-config.json"
@@ -89,4 +150,7 @@ fi
 
 echo ""
 echo "Install complete: ${installed} files installed, ${skipped} files skipped."
-echo "Next steps: Run /tdd-setup in Copilot Chat to complete configuration."
+if [ "$obsolete" -gt 0 ]; then
+    echo "Obsolete files detected: ${obsolete}. Remove the files listed above to finish upgrading to the single-agent TDD harness."
+fi
+echo "Next steps: Run /tdd-setup in Copilot Chat to complete configuration, then switch to the tdd agent when you want the workflow. The CLI binary is installed under .github/bin/."
