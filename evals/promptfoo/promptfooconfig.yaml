@@ -1,11 +1,14 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
 description: |
   TDD agent benchmark matrix (v2). Scores deterministic protocol-fidelity
-  signals over run-summary JSON artifacts produced for the single `tdd` agent.
+  signals over run-summary JSON artifacts produced from real disposable example
+  repositories.
 
-  The local benchmark provider reads pre-produced run-summary JSON files from
-  ../fixtures/run-summaries/ so the scoring layer can be exercised without
-  wiring promptfoo directly to Copilot runtime execution.
+  The local benchmark provider prepares a disposable git workspace from a
+  fixture source tree for each test case, runs the scenario inside that temp
+  repository, and returns a generated run summary for assertions. This keeps
+  eval runs isolated so sample repos and local branches are not polluted by
+  test edits or commits.
 
 prompts:
   - file://./prompt.txt
@@ -19,11 +22,14 @@ tests:
     threshold: 1
     vars:
       fixtureId: calculator-cli-go
+      baselineId: clean
       scenarioId: feature-add-subtract-command
       scenarioFamily: feature
       runMode: micro-cycle
+      taskPrompt: Add a subtract subcommand to the calc CLI using TDD.
       clarificationExpected: false
-      summaryPath: ../fixtures/run-summaries/calculator-cli-go/feature-add-subtract-command.good.json
+      fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/feature-add-subtract-command.good.js
     assert:
       - type: javascript
         value: file://./assertions/run-summary-shape.js
@@ -42,11 +48,14 @@ tests:
     threshold: 1
     vars:
       fixtureId: calculator-cli-go
+      baselineId: clean
       scenarioId: feature-add-subtract-command
       scenarioFamily: feature
       runMode: micro-cycle
+      taskPrompt: Add a subtract subcommand to the calc CLI using TDD.
       clarificationExpected: false
-      summaryPath: ../fixtures/run-summaries/calculator-cli-go/feature-add-subtract-command.bad.json
+      fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/feature-add-subtract-command.bad.js
     assert:
       - type: javascript
         value: file://./assertions/run-summary-shape.js
