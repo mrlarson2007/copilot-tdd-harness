@@ -242,8 +242,7 @@ function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRun
   const clarificationResolution = clarificationAsked ? extractClarificationResolution(agentOutput) : null;
   const phaseTransitions = buildPhaseTransitions(classified);
   const codeBearingCommits = classified.filter(c => c.hasTest || c.hasProduction);
-  const commitCount = codeBearingCommits.length;
-  const testRunCount = estimateTestRunCount(agentOutput, commitCount);
+  const testRunCount = estimateTestRunCount(agentOutput, codeBearingCommits.length);
   const failureModes = detectFailureModes(classified, testsPassedAtEnd);
 
   return {
@@ -258,7 +257,7 @@ function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRun
     clarificationResolved: clarificationResolution !== null,
     clarificationResolution,
     coverageDelta: null,
-    cycleCount: commitCount,
+    cycleCount: codeBearingCommits.length,
     phaseTransitions,
     newTestsAdded,
     productionFilesChanged,
@@ -266,7 +265,7 @@ function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRun
     testsPassedAtEnd,
     testRunCount,
     firstFailingTestName: null,
-    commitCount,
+    commitCount: codeBearingCommits.length,
     testAndCodeCommittedTogether: togetherness,
     failureModes,
     agentOutputSnippet: agentOutput ? agentOutput.slice(0, 500) : null,
