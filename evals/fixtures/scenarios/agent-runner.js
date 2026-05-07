@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { spawnSync, spawn } = require('child_process');
 
 // This file lives at evals/fixtures/scenarios/agent-runner.js — 3 levels up is the repo root.
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -37,26 +37,91 @@ function setupWorkspaceAgentFiles(workspaceDir) {
 
 /**
  * Run `copilot --agent=tdd` non-interactively inside the workspace.
- * Returns { ok, output, exitCode }.
+ * Returns { ok, output, exitCode } where output combines stdout + stderr.
  */
 function runCopilotAgent(workspaceDir, prompt, options = {}) {
   const timeout = options.timeout ?? 10 * 60 * 1000;
-  try {
-    const output = execFileSync('copilot', [
-      '--agent=tdd',
-      '--prompt', prompt,
-      '--allow-all-tools',
-    ], {
-      cwd: workspaceDir,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout,
-    });
-    return { ok: true, output, exitCode: 0 };
-  } catch (error) {
-    const output = `${error.stdout || ''}${error.stderr || ''}`;
-    return { ok: error.status === 0, output, exitCode: error.status ?? 1 };
-  }
+  const result = spawnSync('copilot', [
+    '--agent=tdd',
+    '--prompt', prompt,
+    '--allow-all-tools',
+  ], {
+    cwd: workspaceDir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout,
+  });
+
+  // Combine stdout + stderr so clarification questions (which may go to stderr) are captured
+  const output = `${result.stdout || ''}${result.stderr || ''}`;
+  const exitCode = result.status ?? (result.error ? 1 : 0);
+  return { ok: exitCode === 0, output, exitCode };
 }
 
-module.exports = { setupWorkspaceAgentFiles, runCopilotAgent };
+/**
+ * Run `copilot --agent=tdd` interactively with piped stdin so the agent can
+ * ask clarifying questions that we answer from the `responses` array.
+ *
+ * Strategy:
+ *   - Start copilot without --prompt so it enters conversational mode.
+ *   - Write `initialPrompt` to stdin after a short startup delay.
+ *   - Poll collected output every 2 s; when a line ending in `?` appears and
+ *     we have a pending response, write it to stdin.
+ *   - Kill the process after `timeout` ms if it hasn't exited.
+ *
+ * Returns { ok, output, exitCode } where output combines stdout + stderr.
+ */
+function runCopilotAgentInteractive(workspaceDir, initialPrompt, responses = [], options = {}) {
+  const timeout = options.timeout ?? 10 * 60 * 1000;
+  const pollIntervalMs = options.pollIntervalMs ?? 2000;
+  const startupDelayMs = options.startupDelayMs ?? 3000;
+
+  return new Promise((resolve) => {
+    const proc = spawn('copilot', ['--agent=tdd', '--allow-all-tools'], {
+      cwd: workspaceDir,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let output = '';
+    let lastCheckedLen = 0;
+    let responseIdx = 0;
+    let settled = false;
+
+    function finish(exitCode) {
+      if (settled) return;
+      settled = true;
+      clearInterval(pollHandle);
+      clearTimeout(killHandle);
+      resolve({ ok: exitCode === 0, output, exitCode: exitCode ?? -1 });
+    }
+
+    proc.stdout.on('data', (chunk) => { output += chunk.toString(); });
+    proc.stderr.on('data', (chunk) => { output += chunk.toString(); });
+
+    proc.on('close', (code) => finish(code));
+    proc.on('error', () => finish(1));
+
+    // Send the initial prompt after startup
+    setTimeout(() => {
+      if (!settled) proc.stdin.write(initialPrompt + '\n');
+    }, startupDelayMs);
+
+    // Poll for clarification questions and send prepared answers
+    const QUESTION_RE = /\?\s*$/m;
+    const pollHandle = setInterval(() => {
+      if (settled || responseIdx >= responses.length) return;
+      const newOutput = output.slice(lastCheckedLen);
+      if (QUESTION_RE.test(newOutput)) {
+        proc.stdin.write(responses[responseIdx++] + '\n');
+      }
+      lastCheckedLen = output.length;
+    }, pollIntervalMs);
+
+    const killHandle = setTimeout(() => {
+      proc.kill();
+      finish(-1);
+    }, timeout);
+  });
+}
+
+module.exports = { setupWorkspaceAgentFiles, runCopilotAgent, runCopilotAgentInteractive };

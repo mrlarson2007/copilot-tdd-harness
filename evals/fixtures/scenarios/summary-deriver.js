@@ -168,6 +168,10 @@ function detectClarification(agentOutput) {
     /\b(clarif|which (operation|subcommand|command)|please specify|could you (clarify|specify|tell))\b/i,
     /before (I|we) (proceed|start|begin|implement)/i,
     /\bwhat (operation|command|feature|behavior)\b/i,
+    /\bwhich (one|specific|operation|subcommand)\b/i,
+    /\bspecif(y|ic)\b.*\b(operation|command|behavior|feature)\b/i,
+    /\b(multiply|subtract|divide|modulo|power)\b.*\?/i,
+    /should I implement\b/i,
   ].some(p => p.test(agentOutput));
 }
 
@@ -264,6 +268,7 @@ function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRun
     commitCount,
     testAndCodeCommittedTogether: togetherness,
     failureModes,
+    agentOutputSnippet: agentOutput ? agentOutput.slice(0, 500) : null,
   };
 }
 

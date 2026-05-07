@@ -62,28 +62,33 @@ a single concrete behavior ("return 0 for an empty cart") are both valid inputs.
 
 ### 2. Clarify ambiguous tasks
 
-Before planning any TDD cycle, evaluate whether the task description uniquely
-identifies the **one behavior** to implement in the first RED step.
+**STOP before RED** and ask the user if the task description does not
+uniquely identify the single behavior to implement.
 
-Ask a single focused clarifying question if any of the following are true:
+A task is **too ambiguous to start** if any of the following are true:
 
-- The task names a category but not a specific operation
-  (e.g., "add another arithmetic subcommand" — which one?).
-- The task names multiple behaviors without specifying order or scope
-  (e.g., "add subtract and multiply" — one cycle or two?).
-- The expected output, edge case, or interface is ambiguous and would require
-  guessing to write a meaningful failing test.
+- It names a category but not a specific operation
+  (e.g., "add another arithmetic subcommand", "add a new feature").
+- It names multiple behaviors without specifying which comes first
+  (e.g., "add subtract and multiply").
+- Writing a meaningful failing test would require you to guess the
+  behavior, its inputs, or its expected outputs.
 
-Example clarifying question:
+**Do not self-resolve the ambiguity.** Do not pick a specific behavior
+and proceed without asking. Ask exactly one focused question and wait
+for the user's answer before doing anything else.
 
-> "Which specific operation should I implement first — multiply, divide, or
-> something else?"
+Example question:
 
-Do not ask for clarification when the task is concrete enough to write a
-failing test immediately (e.g., "add a subtract command").
+> "Which specific operation should I implement first — multiply, divide,
+> or something else?"
 
-Once clarification is received, restate the confirmed behavior before
-proceeding to RED.
+A task is **concrete enough to start** only when it names one specific
+behavior and you could write the failing test without guessing
+(e.g., "add a subtract command that computes a − b").
+
+Once the user answers, restate the confirmed behavior in one sentence,
+then proceed to RED.
 
 ### 3. Determine the scope
 
