@@ -1,2 +1,8 @@
 evals/promptfoo/node_modules/**
 .promptfoo-tooling/node_modules/*
+.promptfoo-tooling/results/
+evals/promptfoo/results/
+results/promptfoo-benchmark.json
+evals/fixtures/projects/**/bin/
+evals/fixtures/projects/**/obj/
+evals/fixtures/projects/**/TestResults/

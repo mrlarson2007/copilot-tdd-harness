@@ -38,20 +38,27 @@ function latestCommitRef(cwd) {
   return result.ok ? result.output.trim() : null;
 }
 
-function appendSubtractTest(workspaceDir) {
+function appendOperationTest(workspaceDir, options) {
+  const {
+    commandName,
+    leftOperand,
+    rightOperand,
+    expectedOutput,
+    testName,
+  } = options;
   const testPath = path.join(workspaceDir, 'main_test.go');
   const content = fs.readFileSync(testPath, 'utf8');
   const addition = `
 
-func TestSubtractCommand_PrintsDifference(t *testing.T) {
-	cmd := exec.Command("go", "run", ".", "subtract", "9", "4")
+func ${testName}(t *testing.T) {
+	cmd := exec.Command("go", "run", ".", "${commandName}", "${leftOperand}", "${rightOperand}")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("expected subtract command to succeed, got error %v with output %s", err, string(output))
+		t.Fatalf("expected ${commandName} command to succeed, got error %v with output %s", err, string(output))
 	}
 
-	if strings.TrimSpace(string(output)) != "5" {
-		t.Fatalf("expected output 5, got %q", strings.TrimSpace(string(output)))
+	if strings.TrimSpace(string(output)) != "${expectedOutput}" {
+		t.Fatalf("expected output ${expectedOutput}, got %q", strings.TrimSpace(string(output)))
 	}
 }
 `;
@@ -59,23 +66,60 @@ func TestSubtractCommand_PrintsDifference(t *testing.T) {
   fs.writeFileSync(testPath, `${content.trimEnd()}${addition}`, 'utf8');
 }
 
-function addSubtractImplementation(workspaceDir) {
+function appendSubtractTest(workspaceDir) {
+  appendOperationTest(workspaceDir, {
+    commandName: 'subtract',
+    leftOperand: 9,
+    rightOperand: 4,
+    expectedOutput: 5,
+    testName: 'TestSubtractCommand_PrintsDifference',
+  });
+}
+
+function addOperationImplementation(workspaceDir, options) {
+  const { commandName, usageLabel, expression } = options;
   const mainPath = path.join(workspaceDir, 'main.go');
   const content = fs.readFileSync(mainPath, 'utf8');
   const updatedUsage = content.replace(
     'fmt.Println("usage: calc <add> <left> <right>")',
-    'fmt.Println("usage: calc <add|subtract> <left> <right>")',
+    `fmt.Println("usage: calc <add|${usageLabel}> <left> <right>")`,
   );
   const updated = updatedUsage.replace(
     /case "add":\r?\n([ \t]+)fmt\.Println\(left \+ right\)/,
-    'case "add":\n$1fmt.Println(left + right)\n\tcase "subtract":\n\t\tfmt.Println(left - right)',
+    `case "add":\n$1fmt.Println(left + right)\n\tcase "${commandName}":\n\t\tfmt.Println(${expression})`,
   );
 
   if (updated === content || updated === updatedUsage) {
-    throw new Error('Failed to apply subtract implementation to fixture main.go');
+    throw new Error(`Failed to apply ${commandName} implementation to fixture main.go`);
   }
 
   fs.writeFileSync(mainPath, updated, 'utf8');
+}
+
+function addSubtractImplementation(workspaceDir) {
+  addOperationImplementation(workspaceDir, {
+    commandName: 'subtract',
+    usageLabel: 'subtract',
+    expression: 'left - right',
+  });
+}
+
+function addMultiplyImplementation(workspaceDir) {
+  addOperationImplementation(workspaceDir, {
+    commandName: 'multiply',
+    usageLabel: 'multiply',
+    expression: 'left * right',
+  });
+}
+
+function appendMultiplyTest(workspaceDir) {
+  appendOperationTest(workspaceDir, {
+    commandName: 'multiply',
+    leftOperand: 6,
+    rightOperand: 7,
+    expectedOutput: 42,
+    testName: 'TestMultiplyCommand_PrintsProduct',
+  });
 }
 
 function runGoTests(workspaceDir) {
@@ -100,13 +144,19 @@ function buildSummary(base, overrides) {
     runMode: base.runMode,
     prompt: base.prompt,
     clarificationAsked: false,
+    clarificationResolved: false,
+    clarificationResolution: null,
     coverageDelta: null,
     ...overrides,
   };
 }
 
 module.exports = {
+  addMultiplyImplementation,
+  addOperationImplementation,
   appendSubtractTest,
+  appendMultiplyTest,
+  appendOperationTest,
   addSubtractImplementation,
   buildSummary,
   commitAll,

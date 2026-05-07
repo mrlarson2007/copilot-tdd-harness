@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="CalculatorTui.Tests/CalculatorTui.Tests.csproj" />
+  <Project Path="CalculatorTui/CalculatorTui.csproj" />
+</Solution>

@@ -68,9 +68,75 @@ function removeDisposableWorkspace(workspace) {
   fs.rmSync(workspace.tempRoot, { recursive: true, force: true });
 }
 
-function readSummary(summaryPath) {
-  const raw = fs.readFileSync(summaryPath, 'utf8');
-  return JSON.parse(raw);
+function sanitizePathSegment(value, fallback) {
+  const normalized = String(value || fallback)
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, '-');
+
+  return normalized || fallback;
+}
+
+function readGitArtifact(workspaceDir, args) {
+  try {
+    return runGitCommand(args, workspaceDir);
+  } catch {
+    return '';
+  }
+}
+
+function persistScenarioArtifacts(workspace, output, scenarioResult, vars) {
+  if (!workspace) {
+    return null;
+  }
+
+  const artifactRoot = resolvePath(
+    vars.artifactOutputDir || './results/run-artifacts',
+    __dirname,
+  );
+  const runId = sanitizePathSegment(
+    vars.runArtifactId || `${Date.now()}-${process.pid}`,
+    'run',
+  );
+  const artifactDir = path.join(
+    artifactRoot,
+    sanitizePathSegment(output.fixtureId, 'fixture'),
+    sanitizePathSegment(output.scenarioId, 'scenario'),
+    runId,
+  );
+
+  fs.mkdirSync(artifactDir, { recursive: true });
+
+  fs.writeFileSync(
+    path.join(artifactDir, 'summary.json'),
+    `${JSON.stringify(output, null, 2)}\n`,
+    'utf8',
+  );
+
+  fs.writeFileSync(
+    path.join(artifactDir, 'scenario-artifacts.json'),
+    `${JSON.stringify(scenarioResult?.artifacts || {}, null, 2)}\n`,
+    'utf8',
+  );
+
+  fs.writeFileSync(
+    path.join(artifactDir, 'git-status.txt'),
+    `${readGitArtifact(workspace.workspaceDir, ['status', '--short'])}\n`,
+    'utf8',
+  );
+
+  fs.writeFileSync(
+    path.join(artifactDir, 'git-log.txt'),
+    `${readGitArtifact(workspace.workspaceDir, ['log', '--oneline', '--decorate', '--graph', '--max-count=20'])}\n`,
+    'utf8',
+  );
+
+  fs.writeFileSync(
+    path.join(artifactDir, 'git-diff.txt'),
+    `${readGitArtifact(workspace.workspaceDir, ['diff', `${workspace.initialHead}..HEAD`])}\n`,
+    'utf8',
+  );
+
+  return artifactDir;
 }
 
 async function executeScenarioModule(scenarioModulePath, input) {
@@ -105,42 +171,32 @@ class BenchmarkProvider {
 
   async callApi(_prompt, context) {
     const vars = getVars(context);
-    const summaryPath = vars.summaryPath;
     const scenarioModulePath = vars.scenarioModulePath;
     let workspace = null;
 
-    if (!summaryPath && !scenarioModulePath) {
-      throw new Error('Missing vars.summaryPath or vars.scenarioModulePath for promptfoo benchmark provider');
+    if (!scenarioModulePath) {
+      throw new Error('Missing vars.scenarioModulePath for promptfoo benchmark provider');
     }
 
     try {
       workspace = prepareDisposableWorkspace(vars);
-      let output;
-      let absoluteSummaryPath = null;
-      let scenarioResult = null;
-
-      if (scenarioModulePath) {
-        scenarioResult = await executeScenarioModule(scenarioModulePath, {
-          workspaceDir: workspace?.workspaceDir || null,
-          fixtureId: vars.fixtureId || null,
-          baselineId: vars.baselineId || 'clean',
-          scenarioId: vars.scenarioId || null,
-          scenarioFamily: vars.scenarioFamily || null,
-          runMode: vars.runMode || null,
-          prompt: vars.taskPrompt || _prompt,
-          initialHead: workspace?.initialHead || null,
-          vars,
-        });
-        output = scenarioResult.summary;
-      } else {
-        absoluteSummaryPath = resolvePath(summaryPath);
-        output = readSummary(absoluteSummaryPath);
-      }
+      const scenarioResult = await executeScenarioModule(scenarioModulePath, {
+        workspaceDir: workspace?.workspaceDir || null,
+        fixtureId: vars.fixtureId || null,
+        baselineId: vars.baselineId || 'clean',
+        scenarioId: vars.scenarioId || null,
+        scenarioFamily: vars.scenarioFamily || null,
+        runMode: vars.runMode || null,
+        prompt: vars.taskPrompt || _prompt,
+        initialHead: workspace?.initialHead || null,
+        vars,
+      });
+      const output = scenarioResult.summary;
+      const artifactDir = persistScenarioArtifacts(workspace, output, scenarioResult, vars);
 
       return {
         output,
         metadata: {
-          summaryPath: absoluteSummaryPath,
           fixtureId: output.fixtureId,
           scenarioId: output.scenarioId,
           scenarioFamily: output.scenarioFamily,
@@ -151,6 +207,7 @@ class BenchmarkProvider {
           workspaceDisposed: !vars.persistWorkspace,
           scenarioModulePath: scenarioResult?.scenarioModulePath || null,
           scenarioArtifacts: scenarioResult?.artifacts || null,
+          artifactDir,
         },
       };
     } finally {
