@@ -60,7 +60,37 @@ Otherwise ask:
 Accept any level of detail — a high-level feature ("add user authentication") or
 a single concrete behavior ("return 0 for an empty cart") are both valid inputs.
 
-### 2. Determine the scope
+### 2. Clarify ambiguous tasks
+
+**STOP before RED** and ask the user if the task description does not
+uniquely identify the single behavior to implement.
+
+A task is **too ambiguous to start** if any of the following are true:
+
+- It names a category but not a specific operation
+  (e.g., "add another arithmetic subcommand", "add a new feature").
+- It names multiple behaviors without specifying which comes first
+  (e.g., "add subtract and multiply").
+- Writing a meaningful failing test would require you to guess the
+  behavior, its inputs, or its expected outputs.
+
+**Do not self-resolve the ambiguity.** Do not pick a specific behavior
+and proceed without asking. Ask exactly one focused question and wait
+for the user's answer before doing anything else.
+
+Example question:
+
+> "Which specific operation should I implement first — multiply, divide,
+> or something else?"
+
+A task is **concrete enough to start** only when it names one specific
+behavior and you could write the failing test without guessing
+(e.g., "add a subtract command that computes a − b").
+
+Once the user answers, restate the confirmed behavior in one sentence,
+then proceed to RED.
+
+### 3. Determine the scope
 
 If the user did not specify how far to go, ask:
 
