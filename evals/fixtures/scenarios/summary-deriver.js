@@ -241,7 +241,8 @@ function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRun
   const clarificationAsked = detectClarification(agentOutput);
   const clarificationResolution = clarificationAsked ? extractClarificationResolution(agentOutput) : null;
   const phaseTransitions = buildPhaseTransitions(classified);
-  const commitCount = classified.length;
+  const codeBearingCommits = classified.filter(c => c.hasTest || c.hasProduction);
+  const commitCount = codeBearingCommits.length;
   const testRunCount = estimateTestRunCount(agentOutput, commitCount);
   const failureModes = detectFailureModes(classified, testsPassedAtEnd);
 
