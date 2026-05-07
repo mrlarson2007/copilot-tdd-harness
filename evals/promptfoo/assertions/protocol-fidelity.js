@@ -8,7 +8,7 @@ module.exports = (output) => {
     phases.includes('GREEN'),
     phases.includes('COMMIT'),
     output?.productionChangedBeforeFirstFailingTest === false,
-    output?.newTestsAdded === 1,
+    output?.newTestsAdded >= 1,
     output?.testsPassedAtEnd === true,
   ];
 

@@ -112,6 +112,21 @@ function addMultiplyImplementation(workspaceDir) {
   });
 }
 
+function addDivideImplementation(workspaceDir) {
+  const mainPath = path.join(workspaceDir, 'main.go');
+  const content = fs.readFileSync(mainPath, 'utf8');
+  const updated = content.replace(
+    /default:\r?\n\t\tfmt\.Printf\("unknown command: %s\\n", os\.Args\[1\]\)\r?\n\t\tos\.Exit\(1\)/,
+    'case "divide":\n\t\tif right == 0 {\n\t\t\tfmt.Println("cannot divide by zero")\n\t\t\tos.Exit(1)\n\t\t}\n\t\tfmt.Println(left / right)\n\tdefault:\n\t\tfmt.Printf("unknown command: %s\\n", os.Args[1])\n\t\tos.Exit(1)',
+  );
+
+  if (updated === content) {
+    throw new Error('Failed to apply divide implementation to fixture main.go');
+  }
+
+  fs.writeFileSync(mainPath, updated, 'utf8');
+}
+
 function appendMultiplyTest(workspaceDir) {
   appendOperationTest(workspaceDir, {
     commandName: 'multiply',
@@ -120,6 +135,27 @@ function appendMultiplyTest(workspaceDir) {
     expectedOutput: 42,
     testName: 'TestMultiplyCommand_PrintsProduct',
   });
+}
+
+function appendDivideByZeroTest(workspaceDir) {
+  const testPath = path.join(workspaceDir, 'main_test.go');
+  const content = fs.readFileSync(testPath, 'utf8');
+  const addition = `
+
+func TestDivideCommand_WhenRightOperandIsZero_PrintsFriendlyError(t *testing.T) {
+  cmd := exec.Command("go", "run", ".", "divide", "8", "0")
+  output, err := cmd.CombinedOutput()
+  if err == nil {
+    t.Fatalf("expected divide command to fail for zero divisor, got output %s", string(output))
+  }
+
+  if !strings.Contains(string(output), "cannot divide by zero") {
+    t.Fatalf("expected friendly divide by zero error, got %q", strings.TrimSpace(string(output)))
+  }
+}
+`;
+
+  fs.writeFileSync(testPath, `${content.trimEnd()}${addition}`, 'utf8');
 }
 
 function runGoTests(workspaceDir) {
@@ -152,8 +188,10 @@ function buildSummary(base, overrides) {
 }
 
 module.exports = {
+  addDivideImplementation,
   addMultiplyImplementation,
   addOperationImplementation,
+  appendDivideByZeroTest,
   appendSubtractTest,
   appendMultiplyTest,
   appendOperationTest,

@@ -60,7 +60,32 @@ Otherwise ask:
 Accept any level of detail — a high-level feature ("add user authentication") or
 a single concrete behavior ("return 0 for an empty cart") are both valid inputs.
 
-### 2. Determine the scope
+### 2. Clarify ambiguous tasks
+
+Before planning any TDD cycle, evaluate whether the task description uniquely
+identifies the **one behavior** to implement in the first RED step.
+
+Ask a single focused clarifying question if any of the following are true:
+
+- The task names a category but not a specific operation
+  (e.g., "add another arithmetic subcommand" — which one?).
+- The task names multiple behaviors without specifying order or scope
+  (e.g., "add subtract and multiply" — one cycle or two?).
+- The expected output, edge case, or interface is ambiguous and would require
+  guessing to write a meaningful failing test.
+
+Example clarifying question:
+
+> "Which specific operation should I implement first — multiply, divide, or
+> something else?"
+
+Do not ask for clarification when the task is concrete enough to write a
+failing test immediately (e.g., "add a subtract command").
+
+Once clarification is received, restate the confirmed behavior before
+proceeding to RED.
+
+### 3. Determine the scope
 
 If the user did not specify how far to go, ask:
 

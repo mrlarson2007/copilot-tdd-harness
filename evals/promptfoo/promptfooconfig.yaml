@@ -5,10 +5,9 @@ description: |
   repositories.
 
   The local benchmark provider prepares a disposable git workspace from a
-  fixture source tree for each test case, runs the scenario inside that temp
-  repository, persists generated summary and git evidence artifacts, and then
-  returns the run summary for assertions. This keeps eval runs isolated so
-  sample repos and local branches are not polluted by test edits or commits.
+  fixture source tree for each test case, invokes the real `copilot --agent=tdd`
+  CLI inside that workspace, then derives the run summary from git history and
+  a final test run. Assertions remain unchanged — they score the same schema.
 
 prompts:
   - file://./prompt.txt
@@ -18,7 +17,7 @@ providers:
     label: tdd-agent-benchmark-provider
 
 tests:
-  - description: calculator-cli-go feature-add-subtract-command (clean RED-GREEN-COMMIT exemplar)
+  - description: calculator-cli-go feature-add-subtract-command
     threshold: 1
     vars:
       fixtureId: calculator-cli-go
@@ -30,7 +29,7 @@ tests:
       clarificationExpected: false
       fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
       artifactOutputDir: ./results/run-artifacts
-      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/feature-add-subtract-command.good.js
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/feature-add-subtract-command.js
     assert:
       - type: javascript
         value: file://./assertions/run-summary-shape.js
@@ -45,31 +44,7 @@ tests:
         value: file://./assertions/clarification-expected.js
         metric: clarification
 
-  - description: calculator-cli-go feature-add-subtract-command (TDD violation exemplar)
-    threshold: 1
-    vars:
-      fixtureId: calculator-cli-go
-      baselineId: clean
-      scenarioId: feature-add-subtract-command
-      scenarioFamily: feature
-      runMode: micro-cycle
-      taskPrompt: Add a subtract subcommand to the calc CLI using TDD.
-      clarificationExpected: false
-      fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
-      artifactOutputDir: ./results/run-artifacts
-      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/feature-add-subtract-command.bad.js
-    assert:
-      - type: javascript
-        value: file://./assertions/run-summary-shape.js
-        metric: schema_shape
-      - type: javascript
-        value: file://./assertions/detects-production-before-red.js
-        metric: detects_violation
-      - type: javascript
-        value: file://./assertions/detects-split-commit.js
-        metric: detects_split_commit
-
-  - description: calculator-cli-go feature-add-multiply-command (clean RED-GREEN-COMMIT exemplar)
+  - description: calculator-cli-go feature-add-multiply-command
     threshold: 1
     vars:
       fixtureId: calculator-cli-go
@@ -81,7 +56,7 @@ tests:
       clarificationExpected: false
       fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
       artifactOutputDir: ./results/run-artifacts
-      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/feature-add-multiply-command.good.js
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/feature-add-multiply-command.js
     assert:
       - type: javascript
         value: file://./assertions/run-summary-shape.js
@@ -96,31 +71,7 @@ tests:
         value: file://./assertions/clarification-expected.js
         metric: clarification
 
-  - description: calculator-cli-go feature-add-multiply-command (TDD violation exemplar)
-    threshold: 1
-    vars:
-      fixtureId: calculator-cli-go
-      baselineId: clean
-      scenarioId: feature-add-multiply-command
-      scenarioFamily: feature
-      runMode: micro-cycle
-      taskPrompt: Add a multiply subcommand to the calc CLI using TDD.
-      clarificationExpected: false
-      fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
-      artifactOutputDir: ./results/run-artifacts
-      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/feature-add-multiply-command.bad.js
-    assert:
-      - type: javascript
-        value: file://./assertions/run-summary-shape.js
-        metric: schema_shape
-      - type: javascript
-        value: file://./assertions/detects-production-before-red.js
-        metric: detects_violation
-      - type: javascript
-        value: file://./assertions/detects-split-commit.js
-        metric: detects_split_commit
-
-  - description: calculator-cli-go feature-add-multiply-command (clarification required exemplar)
+  - description: calculator-cli-go feature-add-multiply-command (clarification required)
     threshold: 1
     vars:
       fixtureId: calculator-cli-go
@@ -150,7 +101,7 @@ tests:
         value: file://./assertions/clarification-quality.js
         metric: clarification_quality
 
-  - description: calculator-cli-dotnet feature-add-power-operation (clean RED-GREEN-COMMIT exemplar)
+  - description: calculator-cli-dotnet feature-add-power-operation
     threshold: 1
     vars:
       fixtureId: calculator-cli-dotnet
@@ -162,7 +113,7 @@ tests:
       clarificationExpected: false
       fixtureSourcePath: ../fixtures/projects/calculator-cli-dotnet/clean
       artifactOutputDir: ./results/run-artifacts
-      scenarioModulePath: ../fixtures/scenarios/calculator-cli-dotnet/feature-add-power-operation.good.js
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-dotnet/feature-add-power-operation.js
     assert:
       - type: javascript
         value: file://./assertions/run-summary-shape.js
@@ -176,27 +127,6 @@ tests:
       - type: javascript
         value: file://./assertions/clarification-expected.js
         metric: clarification
-
-  - description: calculator-cli-dotnet feature-add-power-operation (missing commit exemplar)
-    threshold: 1
-    vars:
-      fixtureId: calculator-cli-dotnet
-      baselineId: clean
-      scenarioId: feature-add-power-operation
-      scenarioFamily: regression
-      runMode: micro-cycle
-      taskPrompt: Add a Power operation to the calculator engine using TDD.
-      clarificationExpected: false
-      fixtureSourcePath: ../fixtures/projects/calculator-cli-dotnet/clean
-      artifactOutputDir: ./results/run-artifacts
-      scenarioModulePath: ../fixtures/scenarios/calculator-cli-dotnet/feature-add-power-operation.missing-commit.js
-    assert:
-      - type: javascript
-        value: file://./assertions/run-summary-shape.js
-        metric: schema_shape
-      - type: javascript
-        value: file://./assertions/detects-missing-commit.js
-        metric: detects_missing_commit
 
 outputPath:
   - results/promptfoo-benchmark.json

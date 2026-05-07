@@ -84,6 +84,27 @@ function readGitArtifact(workspaceDir, args) {
   }
 }
 
+function loadSummaryResult(summaryFilePath, vars) {
+  const absoluteSummaryFilePath = resolvePath(summaryFilePath);
+  if (!fs.existsSync(absoluteSummaryFilePath)) {
+    throw new Error(`Summary file path does not exist: ${absoluteSummaryFilePath}`);
+  }
+
+  const loaded = JSON.parse(fs.readFileSync(absoluteSummaryFilePath, 'utf8'));
+  if (!loaded || typeof loaded !== 'object' || Array.isArray(loaded)) {
+    throw new Error(`Summary file must contain a JSON object: ${absoluteSummaryFilePath}`);
+  }
+
+  return {
+    summary: loaded,
+    artifacts: {
+      replaySummaryFilePath: absoluteSummaryFilePath,
+      replayMode: vars.replayMode || 'agent-summary',
+    },
+    scenarioModulePath: null,
+  };
+}
+
 function persistScenarioArtifacts(workspace, output, scenarioResult, vars) {
   if (!workspace) {
     return null;
@@ -172,25 +193,30 @@ class BenchmarkProvider {
   async callApi(_prompt, context) {
     const vars = getVars(context);
     const scenarioModulePath = vars.scenarioModulePath;
+    const summaryFilePath = vars.summaryFilePath;
     let workspace = null;
 
-    if (!scenarioModulePath) {
-      throw new Error('Missing vars.scenarioModulePath for promptfoo benchmark provider');
+    if (!scenarioModulePath && !summaryFilePath) {
+      throw new Error('Missing vars.scenarioModulePath or vars.summaryFilePath for promptfoo benchmark provider');
     }
 
     try {
-      workspace = prepareDisposableWorkspace(vars);
-      const scenarioResult = await executeScenarioModule(scenarioModulePath, {
-        workspaceDir: workspace?.workspaceDir || null,
-        fixtureId: vars.fixtureId || null,
-        baselineId: vars.baselineId || 'clean',
-        scenarioId: vars.scenarioId || null,
-        scenarioFamily: vars.scenarioFamily || null,
-        runMode: vars.runMode || null,
-        prompt: vars.taskPrompt || _prompt,
-        initialHead: workspace?.initialHead || null,
-        vars,
-      });
+      if (!summaryFilePath) {
+        workspace = prepareDisposableWorkspace(vars);
+      }
+      const scenarioResult = summaryFilePath
+        ? loadSummaryResult(summaryFilePath, vars)
+        : await executeScenarioModule(scenarioModulePath, {
+          workspaceDir: workspace?.workspaceDir || null,
+          fixtureId: vars.fixtureId || null,
+          baselineId: vars.baselineId || 'clean',
+          scenarioId: vars.scenarioId || null,
+          scenarioFamily: vars.scenarioFamily || null,
+          runMode: vars.runMode || null,
+          prompt: vars.taskPrompt || _prompt,
+          initialHead: workspace?.initialHead || null,
+          vars,
+        });
       const output = scenarioResult.summary;
       const artifactDir = persistScenarioArtifacts(workspace, output, scenarioResult, vars);
 
@@ -206,6 +232,7 @@ class BenchmarkProvider {
           workspaceSourcePath: workspace?.fixtureSourcePath || null,
           workspaceDisposed: !vars.persistWorkspace,
           scenarioModulePath: scenarioResult?.scenarioModulePath || null,
+          summaryFilePath: summaryFilePath ? resolvePath(summaryFilePath) : null,
           scenarioArtifacts: scenarioResult?.artifacts || null,
           artifactDir,
         },
