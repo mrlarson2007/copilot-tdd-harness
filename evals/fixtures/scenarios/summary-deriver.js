@@ -254,7 +254,7 @@ function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRun
     runMode: input.runMode,
     prompt: input.prompt,
     clarificationAsked,
-    clarificationResolved: clarificationAsked,
+    clarificationResolved: clarificationResolution !== null,
     clarificationResolution,
     coverageDelta: null,
     cycleCount: commitCount,
