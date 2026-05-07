@@ -22,6 +22,10 @@ Apply the rules from the `tdd-workflow` skill throughout this session: one test
 per cycle, edge cases first, minimal GREEN implementations, and tests committed
 together with production code.
 
+**Important**: When project-specific instructions in `.github/instructions/tdd-patterns.instructions.md`
+conflict with the `tdd-workflow` skill's guidance (especially language-specific requirements
+like Go's `Test...` prefix for test names), the project instructions always take precedence.
+
 ## Required Project Inputs
 
 Before starting any TDD cycle, check for this file:
