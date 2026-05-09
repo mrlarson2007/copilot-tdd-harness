@@ -88,7 +88,23 @@ function classifyCommit(commit, isTestFile, isProductionFile) {
     ...commit,
     hasTest: commit.files.some(isTestFile),
     hasProduction: commit.files.some(isProductionFile),
+    isRefactor: false, // set by markRefactorCommits
   };
+}
+
+/**
+ * A production-only commit is a valid REFACTOR commit when it follows at least
+ * one prior GREEN commit (i.e. a commit that had both test + production files).
+ * Without a prior GREEN commit, a production-only commit is a protocol error.
+ */
+function markRefactorCommits(classified) {
+  let hasSeenGreenCommit = false;
+  return classified.map(c => {
+    const isGreen = c.hasTest && c.hasProduction;
+    const isRefactor = !c.hasTest && c.hasProduction && hasSeenGreenCommit;
+    if (isGreen) hasSeenGreenCommit = true;
+    return { ...c, isRefactor };
+  });
 }
 
 function productionChangedBeforeFirstTest(classified) {
@@ -98,9 +114,11 @@ function productionChangedBeforeFirstTest(classified) {
 }
 
 function allCodeCommitsMixed(classified) {
+  // A run has good togetherness when every code-bearing commit is either a GREEN
+  // commit (test + production together) or a valid REFACTOR commit.
   const code = classified.filter(c => c.hasTest || c.hasProduction);
   if (code.length === 0) return false;
-  return code.every(c => c.hasTest && c.hasProduction);
+  return code.every(c => (c.hasTest && c.hasProduction) || c.isRefactor);
 }
 
 // ---------------------------------------------------------------------------
@@ -196,10 +214,30 @@ function estimateTestRunCount(agentOutput, commitCount) {
 }
 
 // ---------------------------------------------------------------------------
+// Uncommitted change detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns any code files (test or production) that are modified but not
+ * committed at the end of the agent run.  A non-empty list means the agent
+ * violated commit discipline (e.g. refactored but forgot to commit).
+ */
+function detectUncommittedCodeFiles(workspaceDir, isTestFile, isProductionFile) {
+  const result = git(workspaceDir, ['status', '--porcelain']);
+  if (!result.ok || !result.output.trim()) return [];
+
+  return result.output
+    .split('\n')
+    .filter(l => l.trim())
+    .map(l => l.slice(3).trim())          // strip 2-char status + space
+    .filter(f => f && (isTestFile(f) || isProductionFile(f)));
+}
+
+// ---------------------------------------------------------------------------
 // Failure mode detection
 // ---------------------------------------------------------------------------
 
-function detectFailureModes(classified, testsPassedAtEnd) {
+function detectFailureModes(classified, testsPassedAtEnd, uncommittedFiles) {
   const modes = [];
 
   if (productionChangedBeforeFirstTest(classified)) {
@@ -207,10 +245,12 @@ function detectFailureModes(classified, testsPassedAtEnd) {
   }
 
   const code = classified.filter(c => c.hasTest || c.hasProduction);
-  if (code.some(c => c.hasProduction && !c.hasTest)) modes.push('production-only-commit');
+  // production-only commit that is NOT a valid post-GREEN refactor commit
+  if (code.some(c => c.hasProduction && !c.hasTest && !c.isRefactor)) modes.push('production-only-commit');
   if (code.some(c => c.hasTest && !c.hasProduction)) modes.push('test-and-code-split-commit');
   if (classified.length === 0) modes.push('no-commit');
   if (!testsPassedAtEnd) modes.push('tests-failed-at-end');
+  if (uncommittedFiles.length > 0) modes.push('uncommitted-changes');
 
   return [...new Set(modes)];
 }
@@ -231,7 +271,9 @@ function detectFailureModes(classified, testsPassedAtEnd) {
 function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRunnerFn) {
   const { isTestFile, isProductionFile } = getFileClassifiers(input.fixtureId);
   const rawCommits = getCommitsSinceBaseline(workspaceDir, initialHead);
-  const classified = rawCommits.map(c => classifyCommit(c, isTestFile, isProductionFile));
+  const classified = markRefactorCommits(
+    rawCommits.map(c => classifyCommit(c, isTestFile, isProductionFile))
+  );
 
   const finalTestResult = testRunnerFn(workspaceDir);
   const testsPassedAtEnd = finalTestResult.ok;
@@ -240,12 +282,14 @@ function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRun
   const productionFilesChanged = countChangedProductionFiles(workspaceDir, initialHead, isProductionFile);
   const prodBeforeRed = productionChangedBeforeFirstTest(classified);
   const togetherness = allCodeCommitsMixed(classified);
+  const uncommittedFiles = detectUncommittedCodeFiles(workspaceDir, isTestFile, isProductionFile);
   const clarificationAsked = detectClarification(agentOutput);
   const clarificationResolution = clarificationAsked ? extractClarificationResolution(agentOutput) : null;
   const phaseTransitions = buildPhaseTransitions(classified);
   const codeBearingCommits = classified.filter(c => c.hasTest || c.hasProduction);
+  const refactorCommits = classified.filter(c => c.isRefactor);
   const testRunCount = estimateTestRunCount(agentOutput, codeBearingCommits.length);
-  const failureModes = detectFailureModes(classified, testsPassedAtEnd);
+  const failureModes = detectFailureModes(classified, testsPassedAtEnd, uncommittedFiles);
 
   return {
     schemaVersion: '1.0.0',
@@ -268,7 +312,10 @@ function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRun
     testRunCount,
     firstFailingTestName: null,
     commitCount: codeBearingCommits.length,
+    refactorCommitCount: refactorCommits.length,
     testAndCodeCommittedTogether: togetherness,
+    hasUncommittedChanges: uncommittedFiles.length > 0,
+    uncommittedFiles,
     failureModes,
     agentOutputSnippet: agentOutput ? agentOutput.slice(0, 500) : null,
   };
