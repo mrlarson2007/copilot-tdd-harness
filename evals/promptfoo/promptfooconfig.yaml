@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: |
+  TDD agent benchmark matrix (v2). Scores deterministic protocol-fidelity
+  signals over run-summary JSON artifacts produced from real disposable example
+  repositories.
+
+  The local benchmark provider prepares a disposable git workspace from a
+  fixture source tree for each test case, invokes the real `copilot --agent=tdd`
+  CLI inside that workspace, then derives the run summary from git history and
+  a final test run. Assertions remain unchanged — they score the same schema.
+
+prompts:
+  - file://./prompt.txt
+
+providers:
+  - id: file://./benchmark-provider.js
+    label: tdd-agent-benchmark-provider
+
+tests:
+  - description: calculator-cli-go feature-add-subtract-command
+    threshold: 1
+    vars:
+      fixtureId: calculator-cli-go
+      baselineId: clean
+      scenarioId: feature-add-subtract-command
+      scenarioFamily: feature
+      runMode: micro-cycle
+      taskPrompt: Add a subtract subcommand to the calc CLI using TDD.
+      clarificationExpected: false
+      fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
+      artifactOutputDir: ./results/run-artifacts
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/feature-add-subtract-command.js
+    assert:
+      - type: javascript
+        value: file://./assertions/run-summary-shape.js
+        metric: schema_shape
+      - type: javascript
+        value: file://./assertions/protocol-fidelity.js
+        metric: protocol_fidelity
+      - type: javascript
+        value: file://./assertions/commit-quality.js
+        metric: commit_quality
+      - type: javascript
+        value: file://./assertions/clarification-expected.js
+        metric: clarification
+
+  - description: calculator-cli-go feature-add-multiply-command
+    threshold: 1
+    vars:
+      fixtureId: calculator-cli-go
+      baselineId: clean
+      scenarioId: feature-add-multiply-command
+      scenarioFamily: feature
+      runMode: micro-cycle
+      taskPrompt: Add a multiply subcommand to the calc CLI using TDD.
+      clarificationExpected: false
+      fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
+      artifactOutputDir: ./results/run-artifacts
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/feature-add-multiply-command.js
+    assert:
+      - type: javascript
+        value: file://./assertions/run-summary-shape.js
+        metric: schema_shape
+      - type: javascript
+        value: file://./assertions/protocol-fidelity.js
+        metric: protocol_fidelity
+      - type: javascript
+        value: file://./assertions/commit-quality.js
+        metric: commit_quality
+      - type: javascript
+        value: file://./assertions/clarification-expected.js
+        metric: clarification
+
+  - description: calculator-cli-go feature-add-multiply-command (ambiguous prompt)
+    threshold: 1
+    vars:
+      fixtureId: calculator-cli-go
+      baselineId: clean
+      scenarioId: feature-add-multiply-command
+      scenarioFamily: clarification
+      runMode: micro-cycle
+      taskPrompt: Add another arithmetic subcommand to the calc CLI, but ask which operation to implement before making any changes.
+      # The agent should ask which operation before starting RED, then stop.
+      # A short 2-minute timeout captures the question without waiting for an
+      # answer that never comes in non-interactive mode.
+      clarificationExpected: true
+      fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
+      artifactOutputDir: ./results/run-artifacts
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/feature-add-multiply-command.clarify.js
+    assert:
+      - type: javascript
+        value: file://./assertions/run-summary-shape.js
+        metric: schema_shape
+      - type: javascript
+        value: file://./assertions/clarification-stops.js
+        metric: clarification_stops
+
+  - description: calculator-cli-dotnet feature-add-power-operation
+    threshold: 1
+    vars:
+      fixtureId: calculator-cli-dotnet
+      baselineId: clean
+      scenarioId: feature-add-power-operation
+      scenarioFamily: feature
+      runMode: micro-cycle
+      taskPrompt: Add a Power operation to the calculator engine using TDD.
+      clarificationExpected: false
+      fixtureSourcePath: ../fixtures/projects/calculator-cli-dotnet/clean
+      artifactOutputDir: ./results/run-artifacts
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-dotnet/feature-add-power-operation.js
+    assert:
+      - type: javascript
+        value: file://./assertions/run-summary-shape.js
+        metric: schema_shape
+      - type: javascript
+        value: file://./assertions/protocol-fidelity.js
+        metric: protocol_fidelity
+      - type: javascript
+        value: file://./assertions/commit-quality.js
+        metric: commit_quality
+      - type: javascript
+        value: file://./assertions/clarification-expected.js
+        metric: clarification
+
+outputPath:
+  - results/promptfoo-benchmark.json

@@ -16,7 +16,7 @@ This skill assumes a concrete target behavior has already been chosen by the
 user or by `tdd-planning`. It governs execution discipline; it does not decide
 which feature slice to implement next.
 
-Canonical source: [TDD-Framework.md](../../../TDD-Framework.md)
+Canonical source: [TDD-Framework.md](../../../../TDD-Framework.md)
 
 ## Core Rules (Distilled)
 

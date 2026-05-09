@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: |
+  Optional extended TDD drift benchmark. Runs one longer three-cycle scenario
+  against a disposable Go fixture to see whether discipline degrades over a
+  sustained session with a clarification turn and an error-handling task.
+
+prompts:
+  - file://./prompt.txt
+
+providers:
+  - id: file://./benchmark-provider.js
+    label: tdd-agent-benchmark-provider
+
+tests:
+  - description: calculator-cli-go feature-tdd-drift-check (extended three-cycle)
+    threshold: 1
+    vars:
+      fixtureId: calculator-cli-go
+      baselineId: clean
+      scenarioId: feature-tdd-drift-check
+      scenarioFamily: extended
+      runMode: extended-run
+      taskPrompt: |
+        Run an extended TDD session against the calc CLI.
+        1. Add a subtract subcommand.
+        2. Add another arithmetic subcommand, asking for clarification first.
+        3. Make divide 8 0 print a friendly error.
+      clarificationExpected: true
+      fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
+      artifactOutputDir: ./results/run-artifacts
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/feature-tdd-drift-check.js
+    assert:
+      - type: javascript
+        value: file://./assertions/run-summary-shape.js
+        metric: schema_shape
+      - type: javascript
+        value: file://./assertions/extended-run-discipline.js
+        metric: extended_discipline
+      - type: javascript
+        value: file://./assertions/clarification-quality.js
+        metric: clarification_quality
+
+outputPath:
+  - results/promptfoo-extended-benchmark.json
