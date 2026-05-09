@@ -93,7 +93,14 @@ If the user did not specify how far to go, ask:
 ## Cycle Execution
 
 Use `tdd-workflow` as the canonical execution policy for every RED -> GREEN ->
-COMMIT -> REFACTOR cycle.
+COMMIT -> REFACTOR -> COMMIT cycle.
+
+**Two commits per cycle (when refactoring occurs):**
+1. **GREEN commit** — immediately after tests pass: test + production code together.
+2. **REFACTOR commit** — immediately after any refactoring: design improvements only.
+
+If no refactoring is done, one commit (after GREEN) is sufficient. Never carry
+uncommitted work (from either step) into the next RED cycle.
 
 After each phase transition, explicitly restate:
 
