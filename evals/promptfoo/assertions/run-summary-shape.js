@@ -17,7 +17,10 @@ module.exports = (output) => {
     'testsPassedAtEnd',
     'testRunCount',
     'commitCount',
+    'refactorCommitCount',
     'testAndCodeCommittedTogether',
+    'hasUncommittedChanges',
+    'uncommittedFiles',
     'failureModes',
   ];
 
@@ -34,8 +37,8 @@ module.exports = (output) => {
     return { pass: false, score: 0, reason: `Unexpected schemaVersion ${output.schemaVersion}.` };
   }
 
-  if (!Array.isArray(output.phaseTransitions) || !Array.isArray(output.failureModes)) {
-    return { pass: false, score: 0, reason: 'phaseTransitions and failureModes must be arrays.' };
+  if (!Array.isArray(output.phaseTransitions) || !Array.isArray(output.failureModes) || !Array.isArray(output.uncommittedFiles)) {
+    return { pass: false, score: 0, reason: 'phaseTransitions, failureModes, and uncommittedFiles must be arrays.' };
   }
 
   return { pass: true, score: 1, reason: 'Run-summary matches v1 schema.' };
