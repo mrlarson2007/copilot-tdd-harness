@@ -12,7 +12,11 @@ user-invocable: false
 
 Use this skill when implementing or changing behavior via strict TDD.
 
-Canonical source: [TDD-Framework.md](../../../TDD-Framework.md)
+This skill assumes a concrete target behavior has already been chosen by the
+user or by `tdd-planning`. It governs execution discipline; it does not decide
+which feature slice to implement next.
+
+Canonical source: [TDD-Framework.md](../../../../TDD-Framework.md)
 
 ## Core Rules (Distilled)
 
@@ -55,11 +59,18 @@ Minimal GREEN examples:
 ### COMMIT
 - Stage and commit test + production code together.
 - Keep scope to one completed behavior.
+- Make the first behavior commit immediately after GREEN verification succeeds.
+- Do not insert formatting, cleanup, refactoring, or next-slice planning between
+  GREEN and that first behavior commit, except for removing unstaged build
+  artifacts that should not be committed.
 
 ### REFACTOR
 - Improve design/readability only with tests green throughout.
 - No behavior changes, no new features.
 - If behavior changes are needed, start a new RED cycle.
+- REFACTOR is optional and only starts after the completed behavior has already
+  been committed once.
+- Entering REFACTOR before a behavior commit is a protocol error.
 
 ## Quick Self-Check Before Handoff
 
@@ -68,3 +79,14 @@ Minimal GREEN examples:
 - Did I cover an edge case first when applicable?
 - Is GREEN implementation minimal and only for current test?
 - Are all tests passing before refactor/commit transitions?
+
+## Required Handoff Context
+
+Before using this skill, make sure you can state:
+
+- the single behavior being implemented now
+- the failing test or the exact test you are about to add
+- why this is the next smallest slice
+
+If you cannot state those without guessing, go back to `tdd-planning` before
+starting RED.

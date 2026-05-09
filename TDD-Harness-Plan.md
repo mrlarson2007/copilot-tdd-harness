@@ -33,6 +33,7 @@ The archive preserves the original multi-agent and hooks-first design. The shipp
 - [Issue #7 - safe install scripts (historical)](docs/issue-plans/issue-7-safe-install-scripts.md)
 - [Issue #8 - verification suite (historical)](docs/issue-plans/issue-8-verification-suite.md)
 - [Issue #9 - true CI pipeline and gated publishing](docs/issue-plans/issue-9-agent-plugin-packaging.md)
+- [Issue #10 - tdd-planning and agent/skill separation](docs/issue-plans/issue-10-tdd-planning-and-agent-separation.md)
 
 ---
 
@@ -44,7 +45,8 @@ Layer 1: Always-On Rules          .github/instructions/tdd-constitution.instruct
 Layer 2: Project Instructions     .github/instructions/tdd-patterns.instructions.md
 Layer 3: Main Agent Source        plugin/.github/agents/tdd.agent.md
                                   installed into target .github/agents/
-Layer 4: On-Demand Access         plugin/.github/skills/tdd-workflow/SKILL.md
+Layer 4: On-Demand Access         plugin/.github/skills/tdd-planning/SKILL.md
+                                  plugin/.github/skills/tdd-workflow/SKILL.md
                                   plugin/.github/skills/tdd-setup/SKILL.md
 ```
 

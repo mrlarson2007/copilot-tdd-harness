@@ -30,9 +30,11 @@ function setupWorkspaceAgentFiles(workspaceDir) {
   fs.mkdirSync(path.dirname(agentDest), { recursive: true });
   fs.copyFileSync(agentSrc, agentDest);
 
-  const skillSrc = path.join(REPO_ROOT, '.github', 'skills', 'tdd-workflow');
-  const skillDest = path.join(workspaceDir, '.github', 'skills', 'tdd-workflow');
-  copyDir(skillSrc, skillDest);
+  for (const skillName of ['tdd-planning', 'tdd-workflow']) {
+    const skillSrc = path.join(REPO_ROOT, '.github', 'skills', skillName);
+    const skillDest = path.join(workspaceDir, '.github', 'skills', skillName);
+    copyDir(skillSrc, skillDest);
+  }
 }
 
 function logRunnerProgress(label, message) {

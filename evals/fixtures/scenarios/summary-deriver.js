@@ -177,7 +177,9 @@ function detectClarification(agentOutput) {
 
 function extractClarificationResolution(agentOutput) {
   if (!agentOutput) return null;
-  const m = agentOutput.match(/(?:proceeding with|implementing|adding)\s+(multiply|subtract|divide|add|power)/i);
+  const m = agentOutput.match(
+    /(?:clarification resolved:\s*|proceeding with|implementing|adding|using)\s*(?:\*\*`)?(multiply|subtract|divide|add|power)(?:`\*\*)?(?:\s+as the clarified choice)?/i,
+  );
   return m ? m[1].toLowerCase() : null;
 }
 
