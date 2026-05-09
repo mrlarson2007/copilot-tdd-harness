@@ -82,6 +82,15 @@ A task is **too ambiguous to start** if any of the following are true:
 and proceed without asking. Ask exactly one focused question and wait
 for the user's answer before doing anything else.
 
+Treat category-level prompts as mandatory clarification points even when one
+option looks like the narrowest or safest next step. For example, a request
+like "add another arithmetic subcommand" still requires a question; do not
+choose `subtract`, `multiply`, or any other operation on the user's behalf.
+
+If you catch yourself framing the next step as "pick the narrowest valid
+behavior" or "choose one concrete path," stop and ask the clarification
+question instead.
+
 Example question:
 
 > "Which specific operation should I implement first — multiply, divide,

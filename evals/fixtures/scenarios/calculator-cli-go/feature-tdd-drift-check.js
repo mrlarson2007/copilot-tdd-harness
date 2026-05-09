@@ -8,7 +8,9 @@ module.exports = async function runScenario(input) {
   const { workspaceDir, initialHead, prompt } = input;
 
   setupWorkspaceAgentFiles(workspaceDir);
-  const agentResult = runCopilotAgent(workspaceDir, prompt);
+  const agentResult = await runCopilotAgent(workspaceDir, prompt, {
+    progressLabel: input.scenarioId || 'feature-tdd-drift-check',
+  });
   const summary = deriveRunSummary(input, workspaceDir, initialHead, agentResult.output, runGoTests);
 
   return {

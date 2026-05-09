@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawnSync, spawn } = require('child_process');
+const { spawn } = require('child_process');
 
 // This file lives at evals/fixtures/scenarios/agent-runner.js — 3 levels up is the repo root.
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -35,27 +35,100 @@ function setupWorkspaceAgentFiles(workspaceDir) {
   copyDir(skillSrc, skillDest);
 }
 
+function logRunnerProgress(label, message) {
+  console.error(`[agent-runner:${label}] ${message}`);
+}
+
+function createQuestionDetector() {
+  const questionPattern = /(^|\n)(?:which|what|should\s+i|would\s+you\s+like|do\s+you\s+want|can\s+you\s+clarify|could\s+you\s+clarify)[^\n]*\?\s*$/im;
+  let scannedLength = 0;
+
+  return {
+    scan(output) {
+      const slice = output.slice(scannedLength);
+      scannedLength = output.length;
+      const match = slice.match(questionPattern);
+      return match ? match[0].trim() : null;
+    },
+  };
+}
+
 /**
  * Run `copilot --agent=tdd` non-interactively inside the workspace.
  * Returns { ok, output, exitCode } where output combines stdout + stderr.
  */
 function runCopilotAgent(workspaceDir, prompt, options = {}) {
   const timeout = options.timeout ?? 10 * 60 * 1000;
-  const result = spawnSync('copilot', [
-    '--agent=tdd',
-    '--prompt', prompt,
-    '--allow-all-tools',
-  ], {
-    cwd: workspaceDir,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout,
-  });
+  const progressLabel = options.progressLabel || path.basename(workspaceDir);
+  const heartbeatMs = options.heartbeatMs ?? 15 * 1000;
+  const questionDetector = createQuestionDetector();
 
-  // Combine stdout + stderr so clarification questions (which may go to stderr) are captured
-  const output = `${result.stdout || ''}${result.stderr || ''}`;
-  const exitCode = result.status ?? (result.error ? 1 : 0);
-  return { ok: exitCode === 0, output, exitCode };
+  return new Promise((resolve) => {
+    const proc = spawn('copilot', [
+      '--agent=tdd',
+      '--prompt', prompt,
+      '--allow-all-tools',
+    ], {
+      cwd: workspaceDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let output = '';
+    let settled = false;
+    let killedForClarification = false;
+    const startedAt = Date.now();
+
+    logRunnerProgress(progressLabel, `starting prompt: ${JSON.stringify(prompt)}`);
+
+    function finish(exitCode) {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearInterval(heartbeatHandle);
+      clearTimeout(timeoutHandle);
+
+      const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
+      const resolvedExitCode = exitCode ?? (killedForClarification ? 2 : -1);
+      logRunnerProgress(
+        progressLabel,
+        `finished in ${elapsedSeconds}s with exit code ${resolvedExitCode}${killedForClarification ? ' (clarification detected)' : ''}`,
+      );
+
+      resolve({ ok: resolvedExitCode === 0, output, exitCode: resolvedExitCode });
+    }
+
+    function appendOutput(chunk) {
+      output += chunk.toString();
+
+      const detectedQuestion = options.failOnClarificationQuestion
+        ? questionDetector.scan(output)
+        : null;
+      if (detectedQuestion && !settled) {
+        killedForClarification = true;
+        logRunnerProgress(progressLabel, `detected clarification question and stopping early: ${detectedQuestion}`);
+        proc.kill();
+      }
+    }
+
+    proc.stdout.on('data', appendOutput);
+    proc.stderr.on('data', appendOutput);
+
+    proc.on('close', (code) => finish(code));
+    proc.on('error', () => finish(1));
+
+    const heartbeatHandle = setInterval(() => {
+      const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
+      logRunnerProgress(progressLabel, `still running after ${elapsedSeconds}s`);
+    }, heartbeatMs);
+
+    const timeoutHandle = setTimeout(() => {
+      logRunnerProgress(progressLabel, `timed out after ${Math.round(timeout / 1000)}s`);
+      proc.kill();
+      finish(-1);
+    }, timeout);
+  });
 }
 
 /**

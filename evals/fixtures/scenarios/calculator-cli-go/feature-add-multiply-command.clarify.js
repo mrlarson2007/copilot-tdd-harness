@@ -18,7 +18,10 @@ module.exports = async function runScenario(input) {
   const { workspaceDir, initialHead, prompt } = input;
 
   setupWorkspaceAgentFiles(workspaceDir);
-  const agentResult = runCopilotAgent(workspaceDir, prompt, { timeout: 2 * 60 * 1000 });
+  const agentResult = await runCopilotAgent(workspaceDir, prompt, {
+    progressLabel: `${input.scenarioId || 'feature-add-multiply-command'}.clarify`,
+    timeout: 2 * 60 * 1000,
+  });
   const summary = deriveRunSummary(input, workspaceDir, initialHead, agentResult.output, runGoTests);
 
   return {

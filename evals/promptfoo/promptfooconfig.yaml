@@ -79,7 +79,7 @@ tests:
       scenarioId: feature-add-multiply-command
       scenarioFamily: clarification
       runMode: micro-cycle
-      taskPrompt: Add another arithmetic subcommand to the calc CLI.
+      taskPrompt: Add another arithmetic subcommand to the calc CLI, but ask which operation to implement before making any changes.
       # The agent should ask which operation before starting RED, then stop.
       # A short 2-minute timeout captures the question without waiting for an
       # answer that never comes in non-interactive mode.
