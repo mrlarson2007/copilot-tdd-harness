@@ -131,5 +131,28 @@ tests:
         value: file://./assertions/clarification-expected.js
         metric: clarification
 
+  # ---------------------------------------------------------------------------
+  # Negative test: verifies that commit_discipline catches a forgotten commit.
+  # threshold: 0 — we expect commit_discipline to score 0; that IS the signal.
+  # Excluded from normal runs via --filter-pattern; run ad-hoc to verify detection.
+  # ---------------------------------------------------------------------------
+  - description: calculator-cli-go commit-discipline-failure (simulation)
+    threshold: 0
+    vars:
+      fixtureId: calculator-cli-go
+      baselineId: clean
+      scenarioId: feature-add-subtract-command
+      scenarioFamily: feature
+      runMode: micro-cycle
+      taskPrompt: Add a subtract subcommand to the calc CLI using TDD.
+      clarificationExpected: false
+      fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
+      artifactOutputDir: ./results/run-artifacts
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/commit-discipline-failure.js
+    assert:
+      - type: javascript
+        value: file://./assertions/commit-discipline.js
+        metric: commit_discipline
+
 outputPath:
   - results/promptfoo-benchmark.json
