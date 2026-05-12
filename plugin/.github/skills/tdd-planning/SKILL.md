@@ -24,6 +24,7 @@ Help the agent think like a strong software engineer using TDD:
 - prefer edge cases before happy path when appropriate
 - choose the smallest falsifiable next slice
 - decide whether the request is concrete enough to start RED
+- when creating a test plan, use Given, When, Then format to specify each behavior and its expected outcome
 
 ## Clarification Rules
 
