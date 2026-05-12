@@ -1,0 +1,120 @@
+name: Main Evals And Release
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: Optional explicit release version (for example 1.2.3)
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  evals:
+    name: Run Evals
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install promptfoo tooling
+        run: npm ci --prefix .promptfoo-tooling
+
+      - name: Run standard eval suite
+        working-directory: evals/promptfoo
+        run: npx --prefix ../../.promptfoo-tooling promptfoo eval -c promptfooconfig.yaml
+
+      - name: Run extended eval suite
+        working-directory: evals/promptfoo
+        run: npx --prefix ../../.promptfoo-tooling promptfoo eval -c promptfooconfig.extended.yaml
+
+      - name: Upload eval outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results-${{ github.sha }}
+          path: |
+            evals/promptfoo/results/*.json
+            evals/promptfoo/results/run-artifacts/**
+          if-no-files-found: warn
+
+  release:
+    name: Create Versioned Zip Release
+    needs: evals
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          INPUT_VERSION="${{ github.event.inputs.release_version || '' }}"
+          if [[ -n "$INPUT_VERSION" ]]; then
+            if [[ ! "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "release_version must match MAJOR.MINOR.PATCH" >&2
+              exit 1
+            fi
+            VERSION="$INPUT_VERSION"
+          else
+            LAST_TAG=$(git tag --list 'v*' --sort=-version:refname | head -n1 || true)
+            if [[ -z "$LAST_TAG" ]]; then
+              VERSION="0.1.0"
+            else
+              BASE="${LAST_TAG#v}"
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
+              PATCH=$((PATCH + 1))
+              VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            fi
+          fi
+
+          TAG="v${VERSION}"
+          ZIP_NAME="copilot-tdd-harness-${VERSION}.zip"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build release zip
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+          zip -r "dist/${{ steps.version.outputs.zip_name }}" \
+            plugin \
+            scripts/install-tdd-harness.ps1 \
+            scripts/install-tdd-harness.sh \
+            scripts/tdd-scan.ps1 \
+            scripts/tdd-scan.sh \
+            scripts/run-evals.ps1 \
+            README.md \
+            LICENSE
+
+      - name: Create release and upload zip
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            dist/${{ steps.version.outputs.zip_name }}

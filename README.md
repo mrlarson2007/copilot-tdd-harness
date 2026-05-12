@@ -73,6 +73,39 @@ Open the latest promptfoo results viewer:
 
 For more detail on the eval setup, see [`evals/promptfoo/README.md`](evals/promptfoo/README.md).
 
+## CI Pipeline (Main Branch)
+
+This repository includes a GitHub Actions pipeline at
+[`/.github/workflows/main-evals-release.yml`](.github/workflows/main-evals-release.yml).
+
+On push to `master` or `main` (including branch merges), it will:
+
+1. Install promptfoo tooling.
+2. Run the standard eval suite.
+3. Run the extended eval suite.
+4. Upload eval result artifacts.
+5. Create a GitHub Release with a versioned zip package when evals pass.
+
+## Versioning And Downloadable Zip
+
+The release job uses git tags in `vMAJOR.MINOR.PATCH` format.
+
+- If no prior `v*` tag exists, the first release is `v0.1.0`.
+- Otherwise, each successful main-branch run auto-increments the patch version.
+- You can manually run the workflow and set `release_version` to force a
+  specific version.
+
+Each release includes a downloadable zip asset named:
+
+- `copilot-tdd-harness-<version>.zip`
+
+The zip contains:
+
+- `plugin/`
+- installer and scan scripts in `scripts/`
+- `README.md`
+- `LICENSE`
+
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE).
