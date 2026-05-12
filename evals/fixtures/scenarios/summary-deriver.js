@@ -291,7 +291,7 @@ function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRun
   const codeBearingCommits = classified.filter(c => c.hasTest || c.hasProduction);
   const greenCommits = classified.filter(c => c.hasTest && c.hasProduction);
   const refactorCommits = classified.filter(c => c.isRefactor);
-  const testRunCount = estimateTestRunCount(agentOutput, greenCommits.length);
+  const testRunCount = estimateTestRunCount(agentOutput, codeBearingCommits.length);
   const failureModes = detectFailureModes(classified, testsPassedAtEnd, uncommittedFiles);
 
   return {
