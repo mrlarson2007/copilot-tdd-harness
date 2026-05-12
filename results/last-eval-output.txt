@@ -1,0 +1,50 @@
+npm warn Unknown user config "msvs_version". This will stop working in the next major version of npm.
+
+========================================================================================================================
+ΓÜá∩╕Å The current version of promptfoo 0.121.9 is lower than the latest available version 0.121.11.
+
+Please run npx promptfoo@latest or npm install -g promptfoo@latest to update.
+========================================================================================================================
+
+Cache is disabled.
+Starting evaluation eval-ySJ-2026-05-11T06:50:29
+Running 5 test cases (up to 1 at a time)...
+[agent-runner:feature-add-subtract-command] starting prompt: "Add a subtract subcommand to the calc CLI using TDD."
+[agent-runner:feature-add-subtract-command] still running after 15s
+[agent-runner:feature-add-subtract-command] still running after 30s
+[agent-runner:feature-add-subtract-command] still running after 45s
+[agent-runner:feature-add-subtract-command] still running after 60s
+[agent-runner:feature-add-subtract-command] still running after 75s
+[agent-runner:feature-add-subtract-command] finished in 88s with exit code 0
+[agent-runner:feature-add-multiply-command] starting prompt: "Add a multiply subcommand to the calc CLI using TDD."
+[agent-runner:feature-add-multiply-command] still running after 15s
+[agent-runner:feature-add-multiply-command] still running after 30s
+[agent-runner:feature-add-multiply-command] still running after 45s
+[agent-runner:feature-add-multiply-command] still running after 60s
+[agent-runner:feature-add-multiply-command] still running after 75s
+[agent-runner:feature-add-multiply-command] still running after 90s
+[agent-runner:feature-add-multiply-command] still running after 105s
+[agent-runner:feature-add-multiply-command] still running after 120s
+[agent-runner:feature-add-multiply-command] still running after 135s
+[agent-runner:feature-add-multiply-command] finished in 138s with exit code 0
+[agent-runner:feature-add-multiply-command.clarify] starting prompt: "Add another arithmetic subcommand to the calc CLI, but ask which operation to implement before making any changes."
+[agent-runner:feature-add-multiply-command.clarify] still running after 15s
+[agent-runner:feature-add-multiply-command.clarify] still running after 30s
+[agent-runner:feature-add-multiply-command.clarify] finished in 32s with exit code 0
+[agent-runner:feature-add-power-operation] starting prompt: "Add a Power operation to the calculator engine using TDD."
+[agent-runner:feature-add-power-operation] still running after 15s
+[agent-runner:feature-add-power-operation] still running after 30s
+[agent-runner:feature-add-power-operation] still running after 45s
+[agent-runner:feature-add-power-operation] still running after 60s
+[agent-runner:feature-add-power-operation] still running after 75s
+[agent-runner:feature-add-power-operation] still running after 90s
+[agent-runner:feature-add-power-operation] still running after 105s
+[agent-runner:feature-add-power-operation] still running after 120s
+[agent-runner:feature-add-power-operation] still running after 135s
+[agent-runner:feature-add-power-operation] still running after 150s
+[agent-runner:feature-add-power-operation] still running after 165s
+[agent-runner:feature-add-power-operation] finished in 180s with exit code 0
+[agent-runner:feature-add-subtract-command] starting prompt: "Add a subtract subcommand to the calc CLI using TDD."
+[agent-runner:feature-add-subtract-command] still running after 15s
+[agent-runner:feature-add-subtract-command] still running after 30s
+[agent-runner:feature-add-subtract-command] still running after 45s

@@ -132,12 +132,12 @@ tests:
         metric: clarification
 
   # ---------------------------------------------------------------------------
-  # Negative test: verifies that commit_discipline catches a forgotten commit.
-  # threshold: 0 — we expect commit_discipline to score 0; that IS the signal.
-  # Excluded from normal runs via --filter-pattern; run ad-hoc to verify detection.
+  # Negative test: verifies that the eval infrastructure correctly detects a
+  # commit-discipline violation.  threshold: 1 — the assertion PASSES when it
+  # correctly detects uncommitted files (inverted logic vs commit-discipline.js).
   # ---------------------------------------------------------------------------
   - description: calculator-cli-go commit-discipline-failure (simulation)
-    threshold: 0
+    threshold: 1
     vars:
       fixtureId: calculator-cli-go
       baselineId: clean
@@ -151,8 +151,8 @@ tests:
       scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/commit-discipline-failure.js
     assert:
       - type: javascript
-        value: file://./assertions/commit-discipline.js
-        metric: commit_discipline
+        value: file://./assertions/commit-discipline-detects-violation.js
+        metric: commit_discipline_detection
 
 outputPath:
   - results/promptfoo-benchmark.json
