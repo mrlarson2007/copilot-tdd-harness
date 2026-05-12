@@ -159,14 +159,16 @@ function countChangedProductionFiles(workspaceDir, initialHead, isProductionFile
 // ---------------------------------------------------------------------------
 
 /**
- * Emit one RED → GREEN → COMMIT triple per code-bearing commit.
- * This gives the extended-run-discipline assertion the per-cycle counts it needs.
+ * Emit one RED → GREEN → COMMIT triple per GREEN commit (hasTest && hasProduction).
+ * Refactor commits (production-only, post-GREEN) are excluded — they are not
+ * separate TDD cycles.  This gives the extended-run-discipline assertion the
+ * per-cycle counts it needs without inflating cycleCount.
  */
 function buildPhaseTransitions(classified) {
   const transitions = [];
   let cycleIndex = 0;
   for (const commit of classified) {
-    if (!commit.hasTest && !commit.hasProduction) continue;
+    if (!commit.hasTest || !commit.hasProduction) continue; // GREEN commits only
     transitions.push({ phase: 'RED', source: 'derived', cycleIndex });
     transitions.push({ phase: 'GREEN', source: 'derived', cycleIndex });
     transitions.push({ phase: 'COMMIT', source: 'derived', ref: commit.ref, cycleIndex });
@@ -185,9 +187,10 @@ function detectClarification(agentOutput) {
     /\?\s*$/m,
     /\b(clarif|which (operation|subcommand|command)|please specify|could you (clarify|specify|tell))\b/i,
     /before (I|we) (proceed|start|begin|implement)/i,
-    /\bwhat (operation|command|feature|behavior)\b/i,
+    /\bwhat (operation|command|subcommand)\b/i,
     /\bwhich (one|specific|operation|subcommand)\b/i,
-    /\bspecif(y|ic)\b.*\b(operation|command|behavior|feature)\b/i,
+    /\b(?:please\s+)?specify(?:\s+which)?\s+(operation|command|subcommand|feature)\b/i,
+    /\bspecific\s+(operation|command|subcommand|feature)\b/i,
     /\b(multiply|subtract|divide|modulo|power)\b.*\?/i,
     /should I implement\b/i,
   ].some(p => p.test(agentOutput));
@@ -287,6 +290,7 @@ function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRun
   const clarificationResolution = clarificationAsked ? extractClarificationResolution(agentOutput) : null;
   const phaseTransitions = buildPhaseTransitions(classified);
   const codeBearingCommits = classified.filter(c => c.hasTest || c.hasProduction);
+  const greenCommits = classified.filter(c => c.hasTest && c.hasProduction);
   const refactorCommits = classified.filter(c => c.isRefactor);
   const testRunCount = estimateTestRunCount(agentOutput, codeBearingCommits.length);
   const failureModes = detectFailureModes(classified, testsPassedAtEnd, uncommittedFiles);
@@ -303,7 +307,7 @@ function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRun
     clarificationResolved: clarificationResolution !== null,
     clarificationResolution,
     coverageDelta: null,
-    cycleCount: codeBearingCommits.length,
+    cycleCount: greenCommits.length,
     phaseTransitions,
     newTestsAdded,
     productionFilesChanged,
@@ -321,4 +325,4 @@ function deriveRunSummary(input, workspaceDir, initialHead, agentOutput, testRun
   };
 }
 
-module.exports = { deriveRunSummary };
+module.exports = { deriveRunSummary, detectClarification };

@@ -26,7 +26,8 @@ Canonical source: [TDD-Framework.md](../../../TDD-Framework.md)
 4. In GREEN, write the smallest possible code to pass the failing test only.
 5. Do not refactor while any test is failing.
 6. Keep tests permanent; do not delete or weaken tests to force passing results.
-7. Commit test + production changes together in one commit.
+7. **Commit immediately after GREEN** — test + production code together in one commit.
+8. **Commit again after REFACTOR** — if any refactoring was done, commit the cleaned-up code before starting the next RED cycle. Never carry uncommitted refactoring into the next cycle.
 
 ## Required Test Naming
 
@@ -56,21 +57,24 @@ Minimal GREEN examples:
 - Add the narrowest conditional branch needed for the new failing edge case.
 - Create only the smallest helper needed to satisfy current assertions.
 
-### COMMIT
+### COMMIT (after GREEN)
 - Stage and commit test + production code together.
 - Keep scope to one completed behavior.
-- Make the first behavior commit immediately after GREEN verification succeeds.
+- **This commit is mandatory. Do it immediately after GREEN verification succeeds.**
 - Do not insert formatting, cleanup, refactoring, or next-slice planning between
-  GREEN and that first behavior commit, except for removing unstaged build
-  artifacts that should not be committed.
+  GREEN and this commit, except for removing unstaged build artifacts that should
+  not be committed.
+- Entering REFACTOR before this commit is a protocol error.
 
 ### REFACTOR
 - Improve design/readability only with tests green throughout.
 - No behavior changes, no new features.
 - If behavior changes are needed, start a new RED cycle.
-- REFACTOR is optional and only starts after the completed behavior has already
-  been committed once.
-- Entering REFACTOR before a behavior commit is a protocol error.
+- REFACTOR is optional and only starts after the GREEN behavior commit is done.
+- **If you made any changes during REFACTOR, you must commit them before starting
+  the next RED cycle.** Use a commit message that describes the design improvement
+  (e.g. `refactor: extract helper`, `style: rename for clarity`).
+- Carrying uncommitted refactoring into the next cycle is a protocol error.
 
 ## Quick Self-Check Before Handoff
 
@@ -79,6 +83,8 @@ Minimal GREEN examples:
 - Did I cover an edge case first when applicable?
 - Is GREEN implementation minimal and only for current test?
 - Are all tests passing before refactor/commit transitions?
+- **Did I commit immediately after GREEN? (mandatory — not optional)**
+- **If I refactored, did I commit the refactoring before starting the next RED?**
 
 ## Required Handoff Context
 
