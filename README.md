@@ -102,7 +102,7 @@ Each release includes a downloadable zip asset named:
 The zip contains:
 
 - `plugin/`
-- installer and scan scripts in `scripts/`
+- installer and evaluation scripts in `scripts/`
 - `README.md`
 - `LICENSE`
 

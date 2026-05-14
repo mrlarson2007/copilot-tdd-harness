@@ -163,6 +163,8 @@ tests:
     threshold: 1
     vars:
       scenarioId: feature-user-authentication
+      clarificationExpected: true
+      allowClarificationFirst: true
       taskPrompt: |
         I need to add user authentication to my web application, but I'm not sure
         about the scope. Should we implement OAuth, basic auth, or something custom?
@@ -174,6 +176,9 @@ tests:
       - type: javascript
         value: file://./assertions/requirements-plan-shape.js
         metric: plan_shape
+      - type: javascript
+        value: file://./assertions/clarification-expected.js
+        metric: clarification
       - type: javascript
         value: file://./assertions/plan-has-scenarios.js
         metric: plan_has_scenarios

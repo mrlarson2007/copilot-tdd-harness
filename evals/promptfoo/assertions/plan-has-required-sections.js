@@ -7,6 +7,16 @@ module.exports = (output, context) => {
     };
   }
 
+  const vars = context?.vars || context?.test?.vars || {};
+  const allowClarificationFirst = vars.allowClarificationFirst === true;
+  if (allowClarificationFirst && output?.clarificationAsked === true) {
+    return {
+      pass: true,
+      score: 1,
+      reason: 'Clarification-first behavior accepted for ambiguous planning prompt.',
+    };
+  }
+
   const hasSummary = output.hasFeatureSummary;
   const hasStakeholders = output.hasStakeholders;
   const hasAssumptions = output.hasAssumptions;

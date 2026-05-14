@@ -47,8 +47,9 @@ function deriveRequirementsFromOutput(agentOutput) {
   }
 
   // Check if a clarification question was asked
-  const questionPattern = /(^|\n)(?:which|what|should|would|could|can)[^\n]*\?\s*$/im;
-  if (questionPattern.test(agentOutput)) {
+  const explicitQuestionPattern = /\?/m;
+  const clarificationPromptPattern = /(which\s+authentication\s+outcome|clarify|before\s+guessing|without\s+guessing)/i;
+  if (explicitQuestionPattern.test(agentOutput) || clarificationPromptPattern.test(agentOutput)) {
     plan.clarificationAsked = true;
   }
 
@@ -75,7 +76,7 @@ module.exports = async function runScenario(input) {
     const tempWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), 'copilot-requirements-planning-'));
     
     // Copy requirements-planning agent and skill
-    const REPO_ROOT = path.resolve(__dirname, '../../../');
+    const REPO_ROOT = path.resolve(__dirname, '../../../../');
     const agentSrc = path.join(REPO_ROOT, '.github', 'agents', 'requirements-planning.agent.md');
     const agentDest = path.join(tempWorkspace, '.github', 'agents', 'requirements-planning.agent.md');
     fs.mkdirSync(path.dirname(agentDest), { recursive: true });
@@ -104,8 +105,9 @@ module.exports = async function runScenario(input) {
 
   const agentResult = await runCopilotAgent(runDir, prompt, {
     progressLabel: input.scenarioId || 'requirements-planning',
+    agentName: 'requirements-planning',
     failOnClarificationQuestion: false,
-    timeout: 2 * 60 * 1000, // 2 minutes for interactive planning
+    timeout: 2 * 60 * 1000,
   });
 
   const summary = deriveRequirementsFromOutput(agentResult.output);

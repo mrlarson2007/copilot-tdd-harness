@@ -104,8 +104,6 @@ jobs:
             plugin \
             scripts/install-tdd-harness.ps1 \
             scripts/install-tdd-harness.sh \
-            scripts/tdd-scan.ps1 \
-            scripts/tdd-scan.sh \
             scripts/run-evals.ps1 \
             README.md \
             LICENSE
