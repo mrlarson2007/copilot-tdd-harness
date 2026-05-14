@@ -37,7 +37,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if { $extended && $both; } || { $view && { $extended || $both || [[ -n "$config_path" ]]; }; }; then
+if { $extended && $both; } || \
+   { [[ -n "$config_path" ]] && { $extended || $both; }; } || \
+   { $view && { $extended || $both || [[ -n "$config_path" ]]; }; }; then
   echo "Choose only one mode: default, --extended, --both, --view, or --config <path>." >&2
   exit 1
 fi

@@ -7,7 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-if (($Extended -and $Both) -or ($View -and ($Extended -or $Both -or $ConfigPath))) {
+if (($Extended -and $Both) -or ($ConfigPath -and ($Extended -or $Both)) -or ($View -and ($Extended -or $Both -or $ConfigPath))) {
     throw "Choose only one mode: default, -Extended, -Both, -View, or -ConfigPath <path>."
 }
 
