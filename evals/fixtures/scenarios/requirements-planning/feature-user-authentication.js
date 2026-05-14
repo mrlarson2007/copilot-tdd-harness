@@ -2,10 +2,8 @@
 
 const { setupWorkspaceAgentFiles, runCopilotAgent } = require('../agent-runner');
 
-function deriveRequirementsFromOutput(agentOutput) {
-  if (!agentOutput) return null;
-
-  const plan = {
+function createEmptyPlan(agentOutput) {
+  return {
     schemaVersion: '1.0.0',
     hasPlan: false,
     hasGivenWhenThen: false,
@@ -15,8 +13,13 @@ function deriveRequirementsFromOutput(agentOutput) {
     hasAssumptions: false,
     clarificationAsked: false,
     fileOutputOffered: false,
-    agentOutputLength: agentOutput.length,
+    agentOutputLength: typeof agentOutput === 'string' ? agentOutput.length : 0,
   };
+}
+
+function deriveRequirementsFromOutput(agentOutput) {
+  const plan = createEmptyPlan(agentOutput);
+  if (!agentOutput) return plan;
 
   // Check if a Given/When/Then block exists
   const givenWhenThenPattern = /(?:^|\n)\s*(?:Given|Scenario|Feature)[^\n]*\n\s*(?:Given|When|And)[^\n]*\n\s*(?:Then|And)[^\n]*/im;
