@@ -24,10 +24,10 @@ function deriveRequirementsFromOutput(agentOutput) {
     plan.hasGivenWhenThen = true;
   }
 
-  // Count scenario blocks (Given, When, Then or Scenario headers)
-  const scenarioMatches = agentOutput.match(/^(?:\s*(?:Scenario|Feature):|.*\n\s*Given\s+)/gm);
+  // Count scenario blocks using a single canonical marker to avoid over-counting.
+  const scenarioMatches = agentOutput.match(/^\s*Scenario:/gm);
   if (scenarioMatches) {
-    plan.scenarioCount = Math.max(scenarioMatches.length, 0);
+    plan.scenarioCount = scenarioMatches.length;
   }
 
   // Check for feature summary heading
