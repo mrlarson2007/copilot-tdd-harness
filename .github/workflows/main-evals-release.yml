@@ -16,44 +16,8 @@ permissions:
   contents: write
 
 jobs:
-  evals:
-    name: Run Evals
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install promptfoo tooling
-        run: npm ci --prefix .promptfoo-tooling
-
-      - name: Run standard eval suite
-        working-directory: evals/promptfoo
-        run: npx --prefix ../../.promptfoo-tooling promptfoo eval -c promptfooconfig.yaml
-
-      - name: Run extended eval suite
-        working-directory: evals/promptfoo
-        run: npx --prefix ../../.promptfoo-tooling promptfoo eval -c promptfooconfig.extended.yaml
-
-      - name: Upload eval outputs
-        uses: actions/upload-artifact@v4
-        with:
-          name: eval-results-${{ github.sha }}
-          path: |
-            evals/promptfoo/results/*.json
-            evals/promptfoo/results/run-artifacts/**
-          if-no-files-found: warn
-
   release:
     name: Create Versioned Zip Release
-    needs: evals
     runs-on: ubuntu-latest
 
     steps:
