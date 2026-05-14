@@ -1,10 +1,11 @@
 ---
 name: tdd-setup
 description: >
-  Configure TDD harness for this project. Scans existing code to detect
-  test runner, framework, and naming patterns, then interviews you to fill
-  any gaps. Generates
-  .github/instructions/tdd-patterns.instructions.md.
+  Configure TDD harness for this project. Uses exemplar test and production
+  code plus LLM analysis to extract project patterns, then interviews you to
+  fill any gaps. Generates
+  .github/instructions/tdd-patterns.instructions.md and stage-specific
+  pattern assets.
 user-invocable: true
 ---
 
@@ -17,48 +18,42 @@ Use this skill when the repository needs project-specific TDD configuration.
 Generate:
 
 - `.github/instructions/tdd-patterns.instructions.md`
+- `.github/skills/tdd-red/assets/project-testing-patterns.md`
+- `.github/skills/tdd-green/assets/project-code-style-patterns.md`
+- `.github/skills/tdd-refactor/assets/project-refactor-patterns.md`
 
-## Operating Modes
+These three phase asset files are canonical placeholders and must always exist, even before final pattern extraction.
 
-- **Existing project**: Run the scan script first, pre-fill detected values, and ask the user to confirm or correct them before writing files.
-- **New project**: If nothing meaningful is detected and there are no existing tests, skip raw scan details and interview the user directly.
+## Pattern Extraction Step
 
-## Scan Step
+1. Ensure canonical placeholder files exist for RED, GREEN, and REFACTOR style guides.
+2. Prompt the user to select or specify exemplar test files and production code files that best represent the project's preferred style and conventions.
+3. Use LLM-powered analysis to extract:
+  - Test structure, naming, and assertion patterns from the exemplar test files (for RED)
+  - Code style, idioms, and formatting conventions from the exemplar production files (for GREEN)
+  - Refactoring and surrounding-code consistency patterns from both (for REFACTOR)
+4. Summarize the extracted patterns and present them to the user for confirmation or editing.
+5. After confirmation, update:
+  - `.github/skills/tdd-red/assets/project-testing-patterns.md`
+  - `.github/skills/tdd-green/assets/project-code-style-patterns.md`
+  - `.github/skills/tdd-refactor/assets/project-refactor-patterns.md`
 
-1. Detect the host OS.
-2. Run the matching script from the repository root:
-   - Windows: `pwsh -File scripts/tdd-scan.ps1`
-   - Linux/macOS: `bash scripts/tdd-scan.sh`
-3. Parse the JSON output only. Do not invent detected values that are not present in the scan output.
-
-Expected scan payload:
-
-```json
-{
-  "testRunner": "dotnet test",
-  "testWorkingDir": ".",
-  "testDir": "tests/",
-  "namingPattern": "WhenCondition_ShouldExpectedOutcome",
-  "assertionLib": "Shouldly",
-  "mockLib": "Moq",
-  "existingTestCount": 42,
-  "detected": ["testRunner", "testDir", "namingPattern", "assertionLib", "mockLib"]
-}
-```
+If the user does not provide example files, run interview-only mode.
 
 ## Interview Workflow
 
-Present detected values first, then ask for confirmation or corrections.
-
-If a value is missing, ask:
-
-1. What test runner do you use?
-2. What build command should the agent use for validation when a build step is needed?
-3. Where are your test files?
-4. What naming convention do you use for test methods or test cases?
-5. What assertion library do you use?
-6. What mocking approach or mocking library do you use?
-7. Are there project-specific testing patterns for time, logging, HTTP, database, or other dependencies?
+1. Present extracted patterns first, then ask for confirmation or corrections.
+2. If a value or pattern is missing, ask:
+  - What test runner do you use?
+  - What build command should the agent use for validation when a build step is needed?
+  - Where are your test files?
+  - What naming convention do you use for test methods or test cases?
+  - What assertion library do you use?
+  - What mocking approach or mocking library do you use?
+  - What testing patterns should RED follow (for example AAA, table-driven, Given-When-Then naming)?
+  - What implementation/code-style patterns should GREEN follow (for example naming, formatting, guard clauses, error handling conventions)?
+  - What refactoring style patterns should REFACTOR follow (for example surrounding-code consistency, helper extraction thresholds, readability priorities)?
+  - Are there project-specific testing patterns for time, logging, HTTP, database, or other dependencies?
 
 Do not write files until the user has confirmed the final values.
 
@@ -73,7 +68,17 @@ After confirmation:
    - `java.tdd-patterns.md`
 2. Expand the template with project-specific values, including any confirmed test or build commands in the instructions content.
 3. Write the result to `.github/instructions/tdd-patterns.instructions.md`.
-4. Do not generate `.github/tdd-config.json`.
+4. Write stage-specific pattern assets:
+  - `.github/skills/tdd-red/assets/project-testing-patterns.md`
+  - `.github/skills/tdd-green/assets/project-code-style-patterns.md`
+  - `.github/skills/tdd-refactor/assets/project-refactor-patterns.md`
+5. Do not generate `.github/tdd-config.json`.
+
+Asset content requirements:
+
+- RED asset focuses on test naming, test structure, assertion style, and allowed test doubles.
+- GREEN asset focuses on production code style and minimal implementation conventions.
+- REFACTOR asset focuses on surrounding-code review, readability heuristics, and safe extraction rules.
 
 ## Template Selection Guide
 
@@ -88,7 +93,8 @@ If no template is a close match, generate the instructions from scratch using th
 
 When the skill completes, report:
 
-- which values were auto-detected
+- which values were extracted from exemplar files
 - which values were provided by the user
 - which files were created or updated
+- which patterns were assigned to RED, GREEN, and REFACTOR assets
 - any values the user may still want to refine later

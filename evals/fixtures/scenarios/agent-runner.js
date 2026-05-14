@@ -30,11 +30,27 @@ function setupWorkspaceAgentFiles(workspaceDir) {
   fs.mkdirSync(path.dirname(agentDest), { recursive: true });
   fs.copyFileSync(agentSrc, agentDest);
 
-  for (const skillName of ['tdd-planning', 'tdd-workflow']) {
+  const cycleRunnerSrc = path.join(REPO_ROOT, '.github', 'agents', 'tdd-cycle-runner.agent.md');
+  const cycleRunnerDest = path.join(workspaceDir, '.github', 'agents', 'tdd-cycle-runner.agent.md');
+  fs.copyFileSync(cycleRunnerSrc, cycleRunnerDest);
+
+  for (const skillName of [
+    'tdd-planning',
+    'tdd-workflow',
+    'tdd-cycle-runner',
+    'tdd-red',
+    'tdd-green',
+    'tdd-commit',
+    'tdd-refactor',
+  ]) {
     const skillSrc = path.join(REPO_ROOT, '.github', 'skills', skillName);
     const skillDest = path.join(workspaceDir, '.github', 'skills', skillName);
     copyDir(skillSrc, skillDest);
   }
+
+  const contractsSrc = path.join(REPO_ROOT, '.github', 'contracts');
+  const contractsDest = path.join(workspaceDir, '.github', 'contracts');
+  copyDir(contractsSrc, contractsDest);
 }
 
 function logRunnerProgress(label, message) {
@@ -63,11 +79,12 @@ function runCopilotAgent(workspaceDir, prompt, options = {}) {
   const timeout = options.timeout ?? 10 * 60 * 1000;
   const progressLabel = options.progressLabel || path.basename(workspaceDir);
   const heartbeatMs = options.heartbeatMs ?? 15 * 1000;
+  const agentName = options.agentName || 'tdd';
   const questionDetector = createQuestionDetector();
 
   return new Promise((resolve) => {
     const proc = spawn('copilot', [
-      '--agent=tdd',
+      `--agent=${agentName}`,
       '--prompt', prompt,
       '--allow-all-tools',
     ], {
@@ -150,9 +167,10 @@ function runCopilotAgentInteractive(workspaceDir, initialPrompt, responses = [],
   const timeout = options.timeout ?? 10 * 60 * 1000;
   const pollIntervalMs = options.pollIntervalMs ?? 2000;
   const startupDelayMs = options.startupDelayMs ?? 3000;
+  const agentName = options.agentName || 'tdd';
 
   return new Promise((resolve) => {
-    const proc = spawn('copilot', ['--agent=tdd', '--allow-all-tools'], {
+    const proc = spawn('copilot', [`--agent=${agentName}`, '--allow-all-tools'], {
       cwd: workspaceDir,
       stdio: ['pipe', 'pipe', 'pipe'],
     });

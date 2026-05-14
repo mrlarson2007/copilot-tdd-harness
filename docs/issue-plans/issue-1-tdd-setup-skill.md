@@ -22,18 +22,18 @@ Generate the two project-specific config files so the harness knows how to run t
 ---
 name: tdd-setup
 description: >
-  Configure TDD harness for this project. Scans existing code to detect
-  test runner, framework, and naming patterns, then interviews you to fill
-  any gaps. Generates tdd-config.json and tdd-patterns.instructions.md.
+  Configure TDD harness for this project. Uses exemplar test and production
+  code plus LLM analysis to extract project patterns, then interviews you to
+  fill any gaps. Generates tdd-patterns.instructions.md and stage assets.
 user-invocable: true
 ---
 ```
 
 Invoked as `/tdd-setup` from Copilot Chat.
 
-### Scan Script Output (Structured JSON — ACI design)
+### Pattern Extraction Output (Structured Summary)
 
-`scripts/tdd-scan.ps1` / `scripts/tdd-scan.sh` emit:
+Setup analyzes user-selected exemplar test and production files and emits confirmed pattern summaries:
 
 ```json
 {
@@ -48,30 +48,26 @@ Invoked as `/tdd-setup` from Copilot Chat.
 }
 ```
 
-Detection heuristics:
-- `*.csproj` / `*.sln` → `dotnet test`
-- `package.json` with jest/vitest → `npm test` or `npx vitest`
-- `requirements.txt` / `pyproject.toml` → `pytest`
-- `pom.xml` / `build.gradle` → `mvn test` or `./gradlew test`
-- Scan first 20 test files for naming patterns (regex on method names)
-- Scan `using` / `import` / `require` statements for assertion library
+Extraction heuristics:
+- Analyze exemplar tests for naming, assertions, doubles, and structure.
+- Analyze exemplar production code for naming, formatting, and implementation conventions.
+- Analyze both for refactor boundaries and surrounding-code consistency rules.
 
-### Interview Questions (when scan is insufficient)
+### Interview Questions (when exemplar analysis is insufficient)
 
-1. What test runner do you use? *(auto-filled if detected)*
-2. Where are your test files? *(auto-filled)*
-3. What naming convention for test methods? *(auto-filled if detected; else show examples)*
-4. What assertion library? *(auto-filled)*
-5. What mocking approach? *(auto-filled or None)*
+1. What test runner do you use?
+2. Where are your test files?
+3. What naming convention for test methods?
+4. What assertion library?
+5. What mocking approach?
 6. Any project-specific patterns? (database, time, logging, etc.)
 
 ### SKILL.md Workflow
 
-1. Detect OS, run `scripts/tdd-scan.{ps1,sh}`
-2. Parse JSON output — pre-fill all detected values
-3. Present detected values to user for confirmation
-4. For any undetected value, ask the corresponding interview question
-5. Generate `tdd-config.json` with confirmed values
-6. Choose matching template from `skills/tdd-setup/templates/` OR generate from scratch
-7. Generate `tdd-patterns.instructions.md` using confirmed values + examples from TDD-Framework.md
-8. Report what was created/updated
+1. Ask user for exemplar test and production files
+2. Run LLM analysis to extract project patterns
+3. Present extracted patterns to user for confirmation
+4. For any missing values, ask interview questions
+5. Choose matching template from `skills/tdd-setup/templates/` OR generate from scratch
+6. Generate `tdd-patterns.instructions.md` and stage-specific pattern assets
+7. Report what was created/updated
