@@ -1,14 +1,12 @@
 ---
-name: tdd-workflow
+title: TDD Workflow Skill
 description: >
   Enforces a strict Red-Green-Refactor-Commit TDD workflow. Use when making
   any code changes or adding behavior. Guides the RED→GREEN→COMMIT→REFACTOR
   cycle with one-test-per-cycle discipline, edge-case-first ordering, and
   minimal green implementations.
-user-invocable: false
+user-invocable: true
 ---
-
-# TDD Workflow Skill
 
 Use this skill when implementing or changing behavior via strict TDD.
 
@@ -16,7 +14,6 @@ This skill assumes a concrete target behavior has already been chosen by the
 user or by `tdd-planning`. It governs execution discipline; it does not decide
 which feature slice to implement next.
 
-Canonical source: [TDD-Framework.md](../../../../TDD-Framework.md)
 
 ## Core Rules (Distilled)
 

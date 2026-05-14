@@ -55,7 +55,7 @@ If the user does not provide example files, run interview-only mode.
   - What refactoring style patterns should REFACTOR follow (for example surrounding-code consistency, helper extraction thresholds, readability priorities)?
   - Are there project-specific testing patterns for time, logging, HTTP, database, or other dependencies?
 
-Do not write files until the user has confirmed the final values and extracted patterns.
+Do not write files until the user has confirmed the final values.
 
 ## File Generation
 

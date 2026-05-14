@@ -3,6 +3,7 @@ title: TDD Red Phase Skill
 description: |
   Guides the creation of a single failing behavior test for a scenario slice. Enforces one-behavior-per-test, readable assertions, and correct failure detection. Loads detailed rules from asset files.
 role: phase-skill
+user-invocable: false
 contracts:
   - red_request
   - red_result

@@ -3,6 +3,7 @@ title: TDD Green Phase Skill
 description: |
   Guides the implementation of the simplest code to pass the current failing test. Enforces minimal change, no test edits, and commit discipline. Loads detailed rules from asset files.
 role: phase-skill
+user-invocable: false
 contracts:
   - green_request
   - green_result
