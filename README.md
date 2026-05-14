@@ -10,7 +10,7 @@ project.
 
 - A single `tdd` agent that enforces RED -> GREEN -> COMMIT -> REFACTOR
   discipline.
-- Setup and scanning scripts for tailoring the harness to a target project.
+- Setup and evaluation scripts for tailoring and validating the harness.
 - Promptfoo-based evals for scoring protocol fidelity, clarification behavior,
   and commit discipline against disposable fixture repositories.
 - Packaged plugin assets under [`plugin/`](plugin/) for installation and
@@ -20,7 +20,7 @@ project.
 
 - [`.github/`](.github/) contains the live agent, skills, and repository
   instructions.
-- [`scripts/`](scripts/) contains install, scan, and eval helper scripts.
+- [`scripts/`](scripts/) contains install and eval helper scripts.
 - [`evals/`](evals/) contains promptfoo configs, assertions, fixtures, and run
   summaries.
 - [`plugin/`](plugin/) contains the distributable `.github` package used by the
@@ -53,10 +53,18 @@ Run the standard benchmark:
 .\scripts\run-evals.ps1
 ```
 
+```bash
+./scripts/run-evals.sh
+```
+
 Run the extended drift benchmark:
 
 ```powershell
 .\scripts\run-evals.ps1 -Extended
+```
+
+```bash
+./scripts/run-evals.sh --extended
 ```
 
 Run both modes back-to-back:
@@ -65,10 +73,18 @@ Run both modes back-to-back:
 .\scripts\run-evals.ps1 -Both
 ```
 
+```bash
+./scripts/run-evals.sh --both
+```
+
 Open the latest promptfoo results viewer:
 
 ```powershell
 .\scripts\run-evals.ps1 -View
+```
+
+```bash
+./scripts/run-evals.sh --view
 ```
 
 For more detail on the eval setup, see [`evals/promptfoo/README.md`](evals/promptfoo/README.md).

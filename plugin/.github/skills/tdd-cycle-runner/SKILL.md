@@ -24,7 +24,7 @@ contracts:
 1. Receive `start_cycle` contract from main orchestrator
 2. For each phase:
    - Load phase SKILL.md and asset files
-   - Issue contract request to phase agent
+  - Execute phase guidance through the loaded phase skill
    - Validate contract result
    - On failure, escalate to main orchestrator
 3. On completion, return `cycle_complete` contract
@@ -36,7 +36,7 @@ contracts:
 ## Quality Criteria
 - Only minimal context passed to each phase
 - All contract handoffs validated
-- No direct communication with main orchestrator by phase agents
+- No direct communication with main orchestrator by phase skill executions
 - Progressive disclosure enforced
 
 ## Completion Checks

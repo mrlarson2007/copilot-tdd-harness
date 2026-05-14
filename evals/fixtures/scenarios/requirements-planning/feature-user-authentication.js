@@ -63,17 +63,18 @@ function deriveRequirementsFromOutput(agentOutput) {
 
 module.exports = async function runScenario(input) {
   const { workspaceDir, prompt } = input;
+  const fs = require('fs');
 
   // Requirements-planning needs agent files but not fixture code.
   // Set up a minimal workspace with just the requirements-planning agent/skill.
   let runDir = workspaceDir || process.cwd();
+  let tempWorkspace = null;
   
   if (!workspaceDir) {
     // Create a minimal workspace in temp for agent file setup
     const path = require('path');
-    const fs = require('fs');
     const os = require('os');
-    const tempWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), 'copilot-requirements-planning-'));
+    tempWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), 'copilot-requirements-planning-'));
     
     // Copy requirements-planning agent and skill
     const REPO_ROOT = path.resolve(__dirname, '../../../../');
@@ -103,20 +104,38 @@ module.exports = async function runScenario(input) {
     setupWorkspaceAgentFiles(workspaceDir);
   }
 
-  const agentResult = await runCopilotAgent(runDir, prompt, {
-    progressLabel: input.scenarioId || 'requirements-planning',
-    agentName: 'requirements-planning',
-    failOnClarificationQuestion: false,
-    timeout: 2 * 60 * 1000,
-  });
+  try {
+    const agentResult = await runCopilotAgent(runDir, prompt, {
+      progressLabel: input.scenarioId || 'requirements-planning',
+      agentName: 'requirements-planning',
+      failOnClarificationQuestion: false,
+      timeout: 2 * 60 * 1000,
+    });
 
-  const summary = deriveRequirementsFromOutput(agentResult.output);
+    const summary = deriveRequirementsFromOutput(agentResult.output);
 
-  return {
-    summary,
-    artifacts: {
-      agentOutput: agentResult.output,
-      agentExitCode: agentResult.exitCode,
-    },
-  };
+    return {
+      summary,
+      artifacts: {
+        agentOutput: agentResult.output,
+        agentExitCode: agentResult.exitCode,
+      },
+    };
+  } finally {
+    if (tempWorkspace) {
+      try {
+        fs.rmSync(tempWorkspace, {
+          recursive: true,
+          force: true,
+          maxRetries: 5,
+          retryDelay: 100,
+        });
+      } catch (cleanupError) {
+        // Best-effort cleanup only; do not fail the scenario on transient OS file locks.
+        if (!cleanupError || !['EPERM', 'EBUSY'].includes(cleanupError.code)) {
+          throw cleanupError;
+        }
+      }
+    }
+  }
 };

@@ -44,17 +44,16 @@ If the user does not provide example files, run interview-only mode.
 
 1. Present extracted patterns first, then ask for confirmation or corrections.
 2. If a value or pattern is missing, ask:
-
-1. What test runner do you use?
-2. What build command should the agent use for validation when a build step is needed?
-3. Where are your test files?
-4. What naming convention do you use for test methods or test cases?
-5. What assertion library do you use?
-6. What mocking approach or mocking library do you use?
-7. What testing patterns should RED follow (for example AAA, table-driven, Given-When-Then naming)?
-8. What implementation/code-style patterns should GREEN follow (for example naming, formatting, guard clauses, error handling conventions)?
-9. What refactoring style patterns should REFACTOR follow (for example surrounding-code consistency, helper extraction thresholds, readability priorities)?
-10. Are there project-specific testing patterns for time, logging, HTTP, database, or other dependencies?
+  - What test runner do you use?
+  - What build command should the agent use for validation when a build step is needed?
+  - Where are your test files?
+  - What naming convention do you use for test methods or test cases?
+  - What assertion library do you use?
+  - What mocking approach or mocking library do you use?
+  - What testing patterns should RED follow (for example AAA, table-driven, Given-When-Then naming)?
+  - What implementation/code-style patterns should GREEN follow (for example naming, formatting, guard clauses, error handling conventions)?
+  - What refactoring style patterns should REFACTOR follow (for example surrounding-code consistency, helper extraction thresholds, readability priorities)?
+  - Are there project-specific testing patterns for time, logging, HTTP, database, or other dependencies?
 
 Do not write files until the user has confirmed the final values.
 
