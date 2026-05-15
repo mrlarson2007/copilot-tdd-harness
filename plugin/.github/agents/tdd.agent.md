@@ -24,6 +24,8 @@ Use the skills as separate sources of truth:
 - `tdd-planning` decides the next concrete behavior and whether clarification is
   required before RED.
 - `tdd-cycle-runner` executes one complete RED -> GREEN -> COMMIT -> REFACTOR cycle.
+- `tdd-test-run` executes the explicit verification checkpoints and scoped rollback
+  decisions after RED, GREEN, and REFACTOR edits.
 - `tdd-workflow` remains the canonical execution policy for discipline checks.
 
 **Important**: When project-specific instructions in `.github/instructions/tdd-patterns.instructions.md`
@@ -118,6 +120,9 @@ After each phase transition, explicitly restate:
 - Current phase
 - Protected behavior or failing test
 - Immediate next action
+
+Do not claim a phase is complete until the required `tdd-test-run` verification
+for that phase has produced the expected result.
 
 ## Loop Control
 

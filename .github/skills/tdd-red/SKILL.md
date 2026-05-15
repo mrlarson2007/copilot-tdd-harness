@@ -31,8 +31,11 @@ contracts:
 ## Steps
 1. Load `.github/skills/tdd-red/assets/project-testing-patterns.md` first, then load core asset files for assertion quality, failure verification, and anti-patterns
 2. Write a single failing test for the scenario
-3. Run tests and confirm correct failure
-4. Return contract output
+3. Use `tdd-test-run` with a `test_run_request` contract whose expected result is
+  the specific failing test and failure signal for this RED step
+4. If the observed result does not match the expected RED outcome, revert only
+  the scoped test changes and retry or escalate based on the `test_run_result`
+5. Return contract output
 
 ## Completion Checks
 - Only one new failing test

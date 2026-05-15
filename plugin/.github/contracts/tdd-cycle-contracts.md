@@ -17,10 +17,13 @@ Every contract includes only these shared fields:
 All other fields are contract-specific.
 
 ## Contracts
+
 - red_request
 - red_result
 - green_request
 - green_result
+- test_run_request
+- test_run_result
 - commit_request
 - commit_result
 - refactor_request
@@ -31,6 +34,7 @@ All other fields are contract-specific.
 ## Contract Schemas
 
 ### red_request
+
 ```json
 {
   "contract": "red_request",
@@ -42,6 +46,7 @@ All other fields are contract-specific.
 ```
 
 ### red_result
+
 ```json
 {
   "contract": "red_result",
@@ -57,6 +62,7 @@ All other fields are contract-specific.
 ```
 
 ### green_request
+
 ```json
 {
   "contract": "green_request",
@@ -69,6 +75,7 @@ All other fields are contract-specific.
 ```
 
 ### green_result
+
 ```json
 {
   "contract": "green_result",
@@ -82,7 +89,45 @@ All other fields are contract-specific.
 }
 ```
 
+### test_run_request
+
+```json
+{
+  "contract": "test_run_request",
+  "from": "tdd-red | tdd-green | tdd-refactor | cycle_runner",
+  "to": "tdd-test-run",
+  "phase": "red | green | refactor",
+  "scenario": "Given/When/Then slice",
+  "command_hint": "narrow test command or full suite command",
+  "expected_result": {
+    "outcome": "fail | pass",
+    "test_names": ["TestName"],
+    "must_contain": "expected failure or success signal"
+  },
+  "files_in_scope": ["path/to/file"],
+  "revert_on_mismatch": true
+}
+```
+
+### test_run_result
+
+```json
+{
+  "contract": "test_run_result",
+  "from": "tdd-test-run",
+  "to": "tdd-red | tdd-green | tdd-refactor | cycle_runner",
+  "status": "ok | mismatch | escalate",
+  "phase": "red | green | refactor",
+  "command_output": "test command output",
+  "matched_expected_result": true,
+  "reverted_files": ["path/to/file"],
+  "nextAction": "continue | retry_previous_phase | escalate_cycle_failure",
+  "notes": ["optional"]
+}
+```
+
 ### commit_request
+
 ```json
 {
   "contract": "commit_request",
@@ -94,6 +139,7 @@ All other fields are contract-specific.
 ```
 
 ### commit_result
+
 ```json
 {
   "contract": "commit_result",
@@ -108,6 +154,7 @@ All other fields are contract-specific.
 ```
 
 ### refactor_request
+
 ```json
 {
   "contract": "refactor_request",
@@ -120,6 +167,7 @@ All other fields are contract-specific.
 ```
 
 ### cycle_result
+
 ```json
 {
   "contract": "cycle_result",
@@ -134,6 +182,7 @@ All other fields are contract-specific.
 ```
 
 ### cycle_complete
+
 ```json
 {
   "contract": "cycle_complete",
@@ -152,6 +201,7 @@ All other fields are contract-specific.
 ```
 
 ### escalate_cycle_failure
+
 ```json
 {
   "contract": "escalate_cycle_failure",
@@ -169,6 +219,10 @@ All other fields are contract-specific.
 The H2/H3/etc. prefixes are used only in diagrams and design docs for clarity. All implementation, skill, and contract files use only descriptive contract names.
 
 ## Progressive Disclosure
+
 - Only minimal runtime context required to execute the phase is passed.
 - No full-session or global state is included in phase handoffs.
 - Phase rules, constraints, and detailed guidance come from each phase skill and its assets, not from contract payload fields.
+- If a test-run mismatch occurs, revert only the files in the contract scope. If
+  the scope cannot be reverted safely without disturbing unrelated work, return
+  `escalate` instead of broadening the rollback.

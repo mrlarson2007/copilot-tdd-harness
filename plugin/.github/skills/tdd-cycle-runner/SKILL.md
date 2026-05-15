@@ -11,6 +11,8 @@ contracts:
   - red_result
   - green_request
   - green_result
+  - test_run_request
+  - test_run_result
   - commit_request
   - commit_result
   - refactor_request
@@ -26,6 +28,8 @@ contracts:
 2. For each phase:
   - Load phase SKILL.md and asset files
   - Execute phase guidance through the loaded phase skill
+  - Route every RED, GREEN, and REFACTOR verification through `tdd-test-run`
+    using an explicit expected-result contract before advancing the cycle
   - Validate contract result
   - On failure, escalate to main orchestrator
 3. On completion, return `cycle_complete` contract
@@ -39,6 +43,8 @@ contracts:
 - All contract handoffs validated
 - No direct communication with main orchestrator by phase skill executions
 - Progressive disclosure enforced
+- Any rollback after a failed verification is limited to the scoped files named
+  in the `test_run_request` contract
 
 ## Completion Checks
 - All contracts for the cycle are satisfied
