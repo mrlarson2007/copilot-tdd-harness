@@ -14,6 +14,12 @@ contracts:
   - cycle_result
   - cycle_complete
   - escalate_cycle_failure
+tools:
+  - read
+  - edit
+  - search
+  - execute
+  - agent
 ---
 
 # TDD Cycle Runner Agent

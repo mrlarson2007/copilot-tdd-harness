@@ -10,6 +10,7 @@ tools:
   - edit
   - search
   - execute
+  - agent
 ---
 
 # TDD Orchestrator
