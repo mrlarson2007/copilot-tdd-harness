@@ -14,7 +14,7 @@ $ErrorActionPreference = "Stop"
 
 $scriptDir  = Split-Path -Parent $MyInvocation.MyCommand.Path
 $harnessDir = (Resolve-Path (Join-Path $scriptDir "..")).Path
-$packageDir = Join-Path $harnessDir "plugin\.github"
+$packageDir = Join-Path $harnessDir ".github"
 $targetDir  = (Resolve-Path $TargetDir).Path
 
 $installed = 0

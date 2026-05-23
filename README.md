@@ -13,18 +13,15 @@ project.
 - Setup and evaluation scripts for tailoring and validating the harness.
 - Promptfoo-based evals for scoring protocol fidelity, clarification behavior,
   and commit discipline against disposable fixture repositories.
-- Packaged plugin assets under [`plugin/`](plugin/) for installation and
-  release flows.
 
 ## Repository Layout
 
 - [`.github/`](.github/) contains the live agent, skills, and repository
-  instructions.
+  instructions. This is also the distributable package copied into target
+  projects by the installer.
 - [`scripts/`](scripts/) contains install and eval helper scripts.
 - [`evals/`](evals/) contains promptfoo configs, assertions, fixtures, and run
   summaries.
-- [`plugin/`](plugin/) contains the distributable `.github` package used by the
-  installer.
 - [`samples/`](samples/) contains small example projects used to shape and
   verify harness behavior.
 
@@ -117,7 +114,7 @@ Each release includes a downloadable zip asset named:
 
 The zip contains:
 
-- `plugin/`
+- `.github/`
 - installer and evaluation scripts in `scripts/`
 - `README.md`
 - `LICENSE`

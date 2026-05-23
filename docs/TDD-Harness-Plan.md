@@ -43,11 +43,11 @@ The archive preserves the original multi-agent and hooks-first design. The shipp
 Repository Governance              .github/settings.yml
 Layer 1: Always-On Rules          .github/instructions/tdd-constitution.instructions.md
 Layer 2: Project Instructions     .github/instructions/tdd-patterns.instructions.md
-Layer 3: Main Agent Source        plugin/.github/agents/tdd.agent.md
+Layer 3: Main Agent Source        .github/agents/tdd.agent.md
                                   installed into target .github/agents/
-Layer 4: On-Demand Access         plugin/.github/skills/tdd-planning/SKILL.md
-                                  plugin/.github/skills/tdd-workflow/SKILL.md
-                                  plugin/.github/skills/tdd-setup/SKILL.md
+Layer 4: On-Demand Access         .github/skills/tdd-planning/SKILL.md
+                                  .github/skills/tdd-workflow/SKILL.md
+                                  .github/skills/tdd-setup/SKILL.md
 ```
 
 ## Notes
@@ -55,5 +55,5 @@ Layer 4: On-Demand Access         plugin/.github/skills/tdd-planning/SKILL.md
 - Source of truth for implementation detail is the issue-specific docs.
 - This index intentionally avoids phase-by-phase build instructions.
 - Issue plan docs for prompts, hooks, and phase handoffs are retained as historical design notes and no longer describe the shipped harness.
-- Packaged agent assets live under `plugin/.github/`; target projects receive those files in their own `.github/` folder during installation.
+- `.github/` is the single source of truth; target projects receive those files in their own `.github/` folder during installation.
 - The shipped single-agent harness relies on generated project instructions instead of a separate JSON config or runtime CLI binary.

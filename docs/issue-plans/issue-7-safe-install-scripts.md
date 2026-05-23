@@ -9,7 +9,7 @@ single-agent design.
 
 Current install behavior:
 
-- copies packaged agent and skill assets from `plugin/.github`
+- copies agent and skill assets from `.github`
 - never writes `.github/tdd-config.json`
 - never installs a runtime CLI binary
 - instructs the user to run `tdd-setup` to generate project-specific TDD instructions

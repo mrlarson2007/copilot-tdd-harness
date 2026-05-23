@@ -65,7 +65,7 @@ jobs:
 
           mkdir -p dist
           zip -r "dist/${{ steps.version.outputs.zip_name }}" \
-            plugin \
+            .github \
             scripts/install-tdd-harness.ps1 \
             scripts/install-tdd-harness.sh \
             scripts/run-evals.ps1 \
