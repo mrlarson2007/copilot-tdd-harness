@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Eval Report · Prototype C · Story</title>
+  <link rel="stylesheet" href="../assets/base.css">
+  <style>
+    main { max-width: 860px; }
+    .lede { font-size: 1.2rem; color: var(--muted); }
+    .big-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 24px 0; }
+    .big-compare .value { font-size: 3rem; font-weight: 800; }
+    .big-compare .harness .value { color: var(--harness); }
+    .big-compare .baseline .value { color: var(--baseline); }
+    .timelines { display: grid; gap: 12px; }
+    .timeline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .timeline .who { width: 120px; color: var(--muted); font-size: 0.9rem; }
+    .chip { padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; border: 1px solid var(--border); }
+    .chip.red { background: rgba(248,81,73,.2); border-color: var(--bad); }
+    .chip.green { background: rgba(63,185,80,.2); border-color: var(--harness); }
+    .chip.commit { background: rgba(88,166,255,.2); border-color: var(--accent); }
+    .chip.bad { background: rgba(210,153,34,.15); border-color: var(--warn); }
+    .arrow { color: var(--muted); }
+    .fm-row { display: grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: center; margin: 10px 0; font-size: 0.9rem; }
+    .fm-bars { display: grid; gap: 3px; }
+    .fm-bar { height: 10px; border-radius: 3px; }
+    .fm-bar.baseline { background: var(--baseline); }
+    .fm-bar.harness { background: var(--harness); }
+    .dumbbell { display: grid; grid-template-columns: 100px 1fr 90px; gap: 12px; align-items: center; margin: 12px 0; }
+    .track { position: relative; height: 20px; }
+    .track .axis { position: absolute; top: 9px; left: 0; right: 0; height: 2px; background: var(--border); }
+    .track .span { position: absolute; top: 8px; height: 4px; background: linear-gradient(90deg, var(--baseline), var(--harness)); }
+    .track .dot { position: absolute; top: 3px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; }
+    .track .dot.baseline { background: var(--baseline); }
+    .track .dot.harness { background: var(--harness); }
+    .cost { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .cost .value { font-size: 1.6rem; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main id="app"></main>
+  <script src="../data/eval-report.js"></script>
+  <script src="../assets/report.js"></script>
+  <script>
+    (function () {
+      const R = window.Report;
+      const { data, passRate, overallScore, failureCounts, median, pct, pts, h } = R;
+      const app = document.getElementById('app');
+
+      const testFirst = {
+        harness: passRate({ condition: 'harness', metric: 'test_first' }),
+        baseline: passRate({ condition: 'baseline', metric: 'test_first' }),
+      };
+
+      const chip = (cls, text) => h('span', { class: `chip ${cls}` }, text);
+      const arrow = () => h('span', { class: 'arrow', 'aria-hidden': 'true' }, '→');
+      const flow = (who, steps) => h('div', { class: 'timeline' }, h('span', { class: 'who' }, who),
+        steps.flatMap((s, i) => (i ? [arrow(), s] : [s])));
+
+      function failureModes() {
+        const base = failureCounts({ condition: 'baseline' });
+        const harn = failureCounts({ condition: 'harness' });
+        const per100 = (c, t) => (t ? (c / t) * 100 : 0);
+        const max = Math.max(1, ...data.failureModes.map((f) => per100(base.counts[f.id], base.trials)));
+        return data.failureModes
+          .map((f) => ({ f, b: per100(base.counts[f.id], base.trials), a: per100(harn.counts[f.id], harn.trials) }))
+          .sort((x, y) => y.b - x.b)
+          .map(({ f, b, a }) => h('div', { class: 'fm-row' },
+            h('span', {}, f.label),
+            h('div', { class: 'fm-bars', title: `No skills: ${b.toFixed(1)} per 100 runs · With harness: ${a.toFixed(1)} per 100 runs` },
+              h('div', { class: 'fm-bar baseline', style: { width: `${(b / max) * 100}%` } }),
+              h('div', { class: 'fm-bar harness', style: { width: `${(a / max) * 100}%` } }))));
+      }
+
+      function dumbbells() {
+        return data.models.map((m) => {
+          const a = overallScore({ model: m.id, condition: 'harness' });
+          const b = overallScore({ model: m.id, condition: 'baseline' });
+          const lo = Math.min(a, b), hi = Math.max(a, b);
+          return h('div', { class: 'dumbbell' },
+            h('span', {}, m.label),
+            h('div', { class: 'track', role: 'img', 'aria-label': `${m.label}: no skills ${pct(b)}, with harness ${pct(a)}` },
+              h('div', { class: 'axis' }),
+              h('div', { class: 'span', style: { left: `${lo * 100}%`, width: `${(hi - lo) * 100}%` } }),
+              h('div', { class: 'dot baseline', style: { left: `${b * 100}%` }, title: `No skills ${pct(b)}` }),
+              h('div', { class: 'dot harness', style: { left: `${a * 100}%` }, title: `With harness ${pct(a)}` })),
+            h('span', { class: a - b >= 0 ? 'delta-pos' : 'delta-neg' }, pts(a - b)));
+        });
+      }
+
+      function cost() {
+        const feature = data.runs.filter((r) => data.scenarios.find((s) => s.id === r.scenario).family === 'feature');
+        const med = (cond, key) => median(feature.filter((r) => r.condition === cond).map((r) => r[key]));
+        const tPass = (cond) => passRate({ condition: cond, metric: 'tests_pass_end' });
+        const card = (label, a, b, fmt) => h('div', { class: 'panel' },
+          h('div', { class: 'muted' }, label),
+          h('div', { class: 'value' }, fmt(a)),
+          h('div', { class: 'muted' }, `vs ${fmt(b)} with no skills`));
+        return h('div', { class: 'cost' },
+          card('Median time per feature task', med('harness', 'medianDurationSec'), med('baseline', 'medianDurationSec'), (s) => `${Math.round(s)}s`),
+          card('Median commits per feature task', med('harness', 'medianCommits'), med('baseline', 'medianCommits'), (n) => `${n}`),
+          card('Tests passing at the end', tPass('harness'), tPass('baseline'), pct));
+      }
+
+      app.append(
+        R.protoNav('C'),
+        R.sampleBanner(),
+        h('h1', {}, 'Asking an agent to “use TDD” isn’t enough.'),
+        h('p', { class: 'lede' },
+          `We gave ${data.models.length} models the same small feature tasks, once with the Copilot TDD harness installed and once with no skills. `,
+          'Then we read the git history to see what they actually did.'),
+
+        h('div', { class: 'big-compare' },
+          h('div', { class: 'panel baseline' }, h('div', { class: 'value' }, pct(testFirst.baseline)),
+            h('div', {}, 'of runs wrote a failing test first ', h('strong', {}, 'with no skills'))),
+          h('div', { class: 'panel harness' }, h('div', { class: 'value' }, pct(testFirst.harness)),
+            h('div', {}, 'of runs wrote a failing test first ', h('strong', {}, 'with the harness')))),
+
+        h('h2', {}, 'What a typical run looks like'),
+        h('div', { class: 'panel timelines' },
+          flow('No skills', [chip('bad', 'Edit production code'), chip('', 'Add tests'), chip('green', 'Tests pass'), chip('bad', 'Stop (uncommitted)')]),
+          flow('With harness', [chip('', 'Plan slice'), chip('red', 'RED: failing test'), chip('green', 'GREEN: minimal code'), chip('commit', 'COMMIT'), chip('', 'REFACTOR')])),
+        h('p', { class: 'muted' }, 'Both usually end with passing tests. The difference is how they get there — and whether the work is left in a reviewable state.'),
+
+        h('h2', {}, 'Where agents go wrong without the harness'),
+        h('div', { class: 'legend' },
+          h('span', {}, h('span', { class: 'swatch baseline' }), 'No skills'),
+          h('span', {}, h('span', { class: 'swatch harness' }), 'With harness'),
+          h('span', {}, 'Occurrences per 100 runs')),
+        h('div', { class: 'panel' }, failureModes()),
+
+        h('h2', {}, 'How much each model gains'),
+        h('div', { class: 'panel' }, dumbbells()),
+
+        h('h2', {}, 'What it costs'),
+        cost(),
+
+        R.methodology());
+    })();
+  </script>
+</body>
+</html>

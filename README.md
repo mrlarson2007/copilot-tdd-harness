@@ -24,6 +24,8 @@ project.
   summaries.
 - [`samples/`](samples/) contains small example projects used to shape and
   verify harness behavior.
+- [`site/`](site/) contains prototype public eval report pages (currently using
+  sample data). See [`site/README.md`](site/README.md).
 
 ## Quick Start
 

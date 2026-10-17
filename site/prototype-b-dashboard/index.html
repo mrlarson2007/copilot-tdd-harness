@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Eval Report · Prototype B · Dashboard</title>
+  <link rel="stylesheet" href="../assets/base.css">
+  <style>
+    .filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; margin: 16px 0; }
+    .filters label { display: grid; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 960px) { .grid { grid-template-columns: 1fr 1fr; } }
+    svg text { fill: var(--muted); font-size: 12px; }
+    svg .value { fill: var(--text); font-size: 11px; }
+    .heatmap { display: grid; gap: 3px; font-size: 0.8rem; }
+    .heatmap .hcell { padding: 10px 4px; text-align: center; border-radius: 4px; font-variant-numeric: tabular-nums; }
+    .heatmap .hhead { color: var(--muted); padding: 4px; text-align: center; font-size: 0.75rem; }
+    .heatmap .rowhead { color: var(--text); padding: 10px 4px; }
+    .toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .toggle button { border: 0; border-radius: 0; }
+    .toggle button[aria-pressed="true"] { background: var(--accent); color: #0d1117; }
+    .panel h2 { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <main id="app"></main>
+  <script src="../data/eval-report.js"></script>
+  <script src="../assets/report.js"></script>
+  <script>
+    (function () {
+      const R = window.Report;
+      const { data, passRate, overallScore, pct, pts, h } = R;
+      const app = document.getElementById('app');
+
+      const state = { scenario: '', metric: '', heat: 'lift' };
+
+      function rate(filter) {
+        return state.metric ? passRate({ ...filter, metric: state.metric }) : overallScore(filter);
+      }
+
+      function barChart() {
+        const W = 480, H = 260, padL = 40, padB = 40, padT = 16;
+        const groupW = (W - padL) / data.models.length;
+        const barW = Math.min(36, groupW / 3);
+        const y = (r) => padT + (1 - r) * (H - padT - padB);
+        const svg = h('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', role: 'img',
+          'aria-label': 'Pass rate by model, with harness versus no skills' });
+        for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+          svg.append(
+            h('line', { x1: padL, x2: W, y1: y(t), y2: y(t), stroke: '#30363d' }),
+            h('text', { x: padL - 6, y: y(t) + 4, 'text-anchor': 'end' }, `${t * 100}%`));
+        }
+        data.models.forEach((m, i) => {
+          const cx = padL + groupW * i + groupW / 2;
+          [['harness', -barW - 2, 'var(--harness)'], ['baseline', 2, 'var(--baseline)']].forEach(([cond, dx, fill]) => {
+            const r = rate({ model: m.id, condition: cond, scenario: state.scenario || undefined });
+            if (r === null) return;
+            svg.append(
+              h('rect', { x: cx + dx, y: y(r), width: barW, height: y(0) - y(r), fill, rx: 3 },
+                h('title', {}, `${m.label} · ${data.conditions.find((c) => c.id === cond).label}: ${pct(r)}`)),
+              h('text', { class: 'value', x: cx + dx + barW / 2, y: y(r) - 4, 'text-anchor': 'middle' }, pct(r)));
+          });
+          svg.append(h('text', { x: cx, y: H - padB + 18, 'text-anchor': 'middle' }, m.label));
+        });
+        return svg;
+      }
+
+      function heatColor(value, mode) {
+        if (value === null) return 'transparent';
+        if (mode === 'lift') {
+          const a = Math.min(1, Math.abs(value) / 0.8);
+          return value >= 0 ? `rgba(63,185,80,${0.15 + a * 0.75})` : `rgba(248,81,73,${0.15 + a * 0.75})`;
+        }
+        return `rgba(88,166,255,${0.1 + value * 0.8})`;
+      }
+
+      function heatmap() {
+        const cols = data.metrics;
+        const grid = h('div', { class: 'heatmap', style: { gridTemplateColumns: `110px repeat(${cols.length}, 1fr)` },
+          role: 'table', 'aria-label': 'Model by metric heatmap' });
+        grid.append(h('div', { class: 'hhead' }, ''), cols.map((c) => h('div', { class: 'hhead', title: c.description }, c.label)));
+        for (const m of data.models) {
+          grid.append(h('div', { class: 'rowhead' }, m.label));
+          for (const c of cols) {
+            const f = { model: m.id, metric: c.id, scenario: state.scenario || undefined };
+            const a = passRate({ ...f, condition: 'harness' });
+            const b = passRate({ ...f, condition: 'baseline' });
+            const v = a === null ? null : state.heat === 'lift' ? a - b : state.heat === 'harness' ? a : b;
+            grid.append(h('div', { class: 'hcell', style: { background: heatColor(v, state.heat) },
+              title: `${m.label} · ${c.label}: with harness ${pct(a)}, no skills ${pct(b)}` },
+              v === null ? '—' : state.heat === 'lift' ? pts(v).replace(' pts', '') : pct(v)));
+          }
+        }
+        return grid;
+      }
+
+      function scenarioTable() {
+        return h('table', {},
+          h('thead', {}, h('tr', {}, h('th', {}, 'Scenario'), data.models.map((m) => h('th', { class: 'num' }, m.label)))),
+          h('tbody', {}, data.scenarios.map((s) => h('tr', {},
+            h('td', {}, s.label, ' ', h('code', {}, s.family)),
+            data.models.map((m) => {
+              const a = rate({ model: m.id, condition: 'harness', scenario: s.id });
+              const b = rate({ model: m.id, condition: 'baseline', scenario: s.id });
+              return h('td', { class: 'num', title: `with harness ${pct(a)} · no skills ${pct(b)}` },
+                pct(a), ' ', h('span', { class: 'muted' }, `vs ${pct(b)}`));
+            })))));
+      }
+
+      const select = (label, key, options) => h('label', {}, label,
+        h('select', { onchange: (e) => { state[key] = e.target.value; render(); } },
+          options.map(([v, l]) => h('option', { value: v, selected: state[key] === v }, l))));
+
+      const heatToggle = () => h('div', { class: 'toggle', role: 'group', 'aria-label': 'Heatmap values' },
+        [['lift', 'Lift'], ['harness', 'With harness'], ['baseline', 'No skills']].map(([v, l]) =>
+          h('button', { 'aria-pressed': state.heat === v, onclick: () => { state.heat = v; render(); } }, l)));
+
+      function render() {
+        app.replaceChildren(
+          R.protoNav('B'),
+          R.sampleBanner(),
+          h('h1', {}, 'Eval Dashboard'),
+          h('p', { class: 'muted' }, 'Slice the eval results by scenario and metric to compare models with and without the TDD harness.'),
+          h('div', { class: 'filters' },
+            select('Scenario', 'scenario', [['', 'All scenarios'], ...data.scenarios.map((s) => [s.id, s.label])]),
+            select('Metric', 'metric', [['', 'Overall score'], ...data.metrics.map((m) => [m.id, m.label])]),
+            h('div', { class: 'legend' },
+              h('span', {}, h('span', { class: 'swatch harness' }), 'With harness'),
+              h('span', {}, h('span', { class: 'swatch baseline' }), 'No skills'))),
+          h('div', { class: 'grid' },
+            h('section', { class: 'panel' },
+              h('h2', {}, state.metric ? data.metrics.find((m) => m.id === state.metric).label : 'Overall score'),
+              barChart()),
+            h('section', { class: 'panel' },
+              h('h2', {}, 'Model × metric'),
+              heatToggle(),
+              h('div', { style: { marginTop: '12px' } }, heatmap()))),
+          h('section', { class: 'panel', style: { marginTop: '16px' } },
+            h('h2', {}, 'By scenario'),
+            h('p', { class: 'muted' }, state.metric ? `Metric: ${data.metrics.find((m) => m.id === state.metric).label}` : 'Overall score per scenario'),
+            scenarioTable()),
+          R.methodology());
+      }
+
+      render();
+    })();
+  </script>
+</body>
+</html>

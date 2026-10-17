@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Eval Report · Prototype A · Scorecard</title>
+  <link rel="stylesheet" href="../assets/base.css">
+  <style>
+    .hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 20px 0; }
+    .stat .value { font-size: 2.2rem; font-weight: 700; }
+    .stat .label { color: var(--muted); font-size: 0.85rem; }
+    .bar { position: relative; height: 8px; background: var(--border); border-radius: 4px; min-width: 120px; }
+    .bar > span { position: absolute; inset: 0 auto 0 0; border-radius: 4px; }
+    .bar.harness > span { background: var(--harness); }
+    .bar.baseline > span { background: var(--baseline); }
+    .cell { display: grid; grid-template-columns: 48px 1fr; gap: 8px; align-items: center; }
+    tr.model-row { cursor: pointer; }
+    tr.model-row:hover { background: var(--panel); }
+    tr.detail td { background: var(--panel); padding: 0 12px 12px; }
+    tr.detail table td, tr.detail table th { border-bottom-color: #21262d; padding: 6px 8px; font-size: 0.9rem; }
+    .rank { color: var(--muted); width: 32px; }
+    .tier { font-size: 0.75rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; margin-left: 8px; }
+  </style>
+</head>
+<body>
+  <main id="app"></main>
+  <script src="../data/eval-report.js"></script>
+  <script src="../assets/report.js"></script>
+  <script>
+    (function () {
+      const { data, index, passRate, overallScore, pct, pts, h } = window.Report;
+      const app = document.getElementById('app');
+
+      const rows = data.models.map((m) => {
+        const harness = overallScore({ model: m.id, condition: 'harness' });
+        const baseline = overallScore({ model: m.id, condition: 'baseline' });
+        return { model: m, harness, baseline, lift: harness - baseline };
+      });
+
+      let sortKey = 'harness';
+      const avg = (k) => rows.reduce((s, r) => s + r[k], 0) / rows.length;
+      const best = [...rows].sort((a, b) => b.lift - a.lift)[0];
+
+      const bar = (cls, r) => h('div', { class: 'cell' },
+        h('span', { class: 'num' }, pct(r)),
+        h('div', { class: `bar ${cls}` }, h('span', { style: { width: pct(r) } })));
+
+      const deltaSpan = (d) => h('span', { class: d >= 0 ? 'delta-pos' : 'delta-neg' }, pts(d));
+
+      function detailRow(model) {
+        return h('tr', { class: 'detail', hidden: true },
+          h('td', { colspan: 5 },
+            h('table', {},
+              h('thead', {}, h('tr', {},
+                h('th', {}, 'Metric'), h('th', { class: 'num' }, 'With harness'),
+                h('th', { class: 'num' }, 'No skills'), h('th', { class: 'num' }, 'Lift'))),
+              h('tbody', {}, data.metrics.map((metric) => {
+                const a = passRate({ model: model.id, condition: 'harness', metric: metric.id });
+                const b = passRate({ model: model.id, condition: 'baseline', metric: metric.id });
+                return h('tr', { title: metric.description },
+                  h('td', {}, metric.label),
+                  h('td', { class: 'num' }, pct(a)),
+                  h('td', { class: 'num' }, pct(b)),
+                  h('td', { class: 'num' }, deltaSpan(a - b)));
+              })))));
+      }
+
+      function renderTable() {
+        const sorted = [...rows].sort((a, b) => b[sortKey] - a[sortKey]);
+        const sortBtn = (key, label) => h('th', { class: 'num' },
+          h('button', { onclick: () => { sortKey = key; table.replaceWith(renderTable()); }, 'aria-pressed': sortKey === key },
+            label, sortKey === key ? ' ↓' : ''));
+        const tbody = h('tbody');
+        sorted.forEach((r, i) => {
+          const detail = detailRow(r.model);
+          const row = h('tr', { class: 'model-row', tabindex: 0, 'aria-expanded': 'false',
+            onclick: () => toggle(), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } } },
+            h('td', { class: 'rank' }, `#${i + 1}`),
+            h('td', {}, r.model.label, h('span', { class: 'tier' }, r.model.tier)),
+            h('td', {}, bar('harness', r.harness)),
+            h('td', {}, bar('baseline', r.baseline)),
+            h('td', { class: 'num' }, deltaSpan(r.lift)));
+          function toggle() {
+            detail.hidden = !detail.hidden;
+            row.setAttribute('aria-expanded', String(!detail.hidden));
+          }
+          tbody.append(row, detail);
+        });
+        const table = h('table', {},
+          h('thead', {}, h('tr', {},
+            h('th', {}, ''), h('th', {}, 'Model'),
+            sortBtn('harness', 'With harness'), sortBtn('baseline', 'No skills'), sortBtn('lift', 'Lift'))),
+          tbody);
+        return table;
+      }
+
+      app.append(
+        window.Report.protoNav('A'),
+        window.Report.sampleBanner(),
+        h('h1', {}, 'TDD Harness Scorecard'),
+        h('p', { class: 'muted' },
+          'How often does each model follow strict test-driven development, with and without the Copilot TDD harness? ',
+          'Scores are the average pass rate across all eval metrics.'),
+        h('div', { class: 'hero' },
+          h('div', { class: 'panel stat' }, h('div', { class: 'value' }, pct(avg('harness'))), h('div', { class: 'label' }, 'Average score with harness')),
+          h('div', { class: 'panel stat' }, h('div', { class: 'value muted' }, pct(avg('baseline'))), h('div', { class: 'label' }, 'Average score with no skills')),
+          h('div', { class: 'panel stat' }, h('div', { class: 'value delta-pos' }, pts(avg('lift'))), h('div', { class: 'label' }, 'Average lift from the harness')),
+          h('div', { class: 'panel stat' }, h('div', { class: 'value' }, best.model.label), h('div', { class: 'label' }, `Biggest lift (${pts(best.lift)})`))),
+        h('h2', {}, 'Leaderboard'),
+        h('div', { class: 'legend' },
+          h('span', {}, h('span', { class: 'swatch harness' }), 'With harness'),
+          h('span', {}, h('span', { class: 'swatch baseline' }), 'No skills'),
+          h('span', {}, 'Click a row for the per-metric breakdown')),
+        renderTable(),
+        window.Report.methodology());
+    })();
+  </script>
+</body>
+</html>
