@@ -38,13 +38,54 @@ script tag instead of `fetch`, so the pages also work when opened from
 Pass rates are pooled as passes ÷ trials. The "overall score" is the
 unweighted mean of the per-metric pass rates.
 
-## Producing real data (next steps)
+## Putting real results on the dashboard
 
-1. Add a model option to `agent-runner.js` and pass it through as `--model`.
-2. Add a baseline mode that skips `setupWorkspaceAgentFiles` and runs the
-   default agent.
-3. Run the promptfoo matrix for each model × condition with N repeats.
-4. Fold the promptfoo JSON output (`results/promptfoo-benchmark.json`) into the
-   contract above, then set `isSample: false`.
-5. Publish `site/` with GitHub Pages, for example from a workflow that runs
-   after the evals finish.
+You need the Copilot CLI (`copilot`) installed and signed in, plus Go and .NET
+for the fixtures.
+
+1. **Generate results.** Run the eval matrix for each model, with and without
+   the harness. Use `--repeat` to get more than one trial per cell:
+
+   ```bash
+   ./scripts/run-evals.sh --condition both --model claude-sonnet-4.5,gpt-5 --repeat 3
+   ./scripts/run-evals.sh --extended --condition both --model claude-sonnet-4.5,gpt-5
+   ```
+
+   ```powershell
+   .\scripts\run-evals.ps1 -Condition both -Model claude-sonnet-4.5,gpt-5 -Repeat 3
+   ```
+
+   Each model × condition run writes one promptfoo result file to
+   `evals/promptfoo/results/runs/`. That folder is git-ignored. Results build
+   up across runs, so you can add a model later without re-running the others.
+   Delete files from that folder to drop old results.
+
+2. **Build the report data.**
+
+   ```bash
+   node scripts/build-eval-report.js
+   ```
+
+   This reads every file in `evals/promptfoo/results/runs/` and overwrites
+   `site/data/eval-report.js` with `isSample: false`, which also removes the
+   sample banner. Open `site/index.html` to check the result.
+
+3. **Publish.** Commit `site/data/eval-report.js`. If GitHub Pages serves
+   `site/`, visitors see the new numbers after the commit lands.
+
+The builder only counts the TDD fixture scenarios. It skips the
+`commit-discipline-failure` self-test (it checks the eval tooling, not the
+agent) and the requirements-planning scenario. Rows where the provider crashed
+without producing a run summary are skipped and reported in the console output.
+
+### How the two conditions differ
+
+| | `harness` | `baseline` |
+| --- | --- | --- |
+| Files copied into the fixture workspace | `tdd` agent, `tdd-*` skills, contracts | none |
+| Copilot invocation | `copilot --agent=tdd [--model M] --prompt ...` | `copilot [--model M] --prompt ...` |
+| Prompt, fixture, scoring | same | same |
+
+The scripts set the `EVAL_CONDITION` and `EVAL_MODEL` environment variables,
+which `evals/fixtures/scenarios/agent-runner.js` reads. You can also set them
+yourself when calling promptfoo directly.

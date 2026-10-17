@@ -24,8 +24,8 @@ project.
   summaries.
 - [`samples/`](samples/) contains small example projects used to shape and
   verify harness behavior.
-- [`site/`](site/) contains prototype public eval report pages (currently using
-  sample data). See [`site/README.md`](site/README.md).
+- [`site/`](site/) contains the public eval report pages. They show sample data
+  until you build real results. See [`site/README.md`](site/README.md).
 
 ## Quick Start
 
@@ -86,7 +86,20 @@ Open the latest promptfoo results viewer:
 ./scripts/run-evals.sh --view
 ```
 
+Compare models, with and without the harness (`--condition harness|baseline|both`,
+`--model` takes a comma-separated list, `--repeat` sets trials per test):
+
+```bash
+./scripts/run-evals.sh --condition both --model claude-sonnet-4.5,gpt-5 --repeat 3
+node scripts/build-eval-report.js   # updates site/data/eval-report.js for the dashboard
+```
+
+```powershell
+.\scripts\run-evals.ps1 -Condition both -Model claude-sonnet-4.5,gpt-5 -Repeat 3
+```
+
 For more detail on the eval setup, see [`evals/promptfoo/README.md`](evals/promptfoo/README.md).
+To publish results on the report site, see [`site/README.md`](site/README.md).
 
 ## CI Pipeline (Main Branch)
 

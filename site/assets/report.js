@@ -115,7 +115,7 @@
     return h('details', { class: 'methodology' },
       h('summary', {}, 'How these numbers are produced'),
       h('p', {},
-        `Each cell is ${data.trialsPerCell} runs of the same prompt against a disposable fixture repository. `,
+        `Each model × condition × scenario cell has at least ${data.trialsPerCell} run(s) of the same prompt against a disposable fixture repository. `,
         'Runs are scored with the promptfoo assertions in evals/promptfoo/assertions by inspecting git history and a final test run. ',
         'The "No skills" condition uses the same model and prompt without the TDD agent or skills installed.'),
       h('ul', {}, data.metrics.map((m) =>

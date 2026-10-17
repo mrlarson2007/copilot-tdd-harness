@@ -76,6 +76,10 @@
         return data.models.map((m) => {
           const a = overallScore({ model: m.id, condition: 'harness' });
           const b = overallScore({ model: m.id, condition: 'baseline' });
+          if (a === null || b === null) {
+            return h('div', { class: 'dumbbell' }, h('span', {}, m.label),
+              h('span', { class: 'muted' }, `Needs both conditions (with harness ${pct(a)}, no skills ${pct(b)})`), h('span', {}));
+          }
           const lo = Math.min(a, b), hi = Math.max(a, b);
           return h('div', { class: 'dumbbell' },
             h('span', {}, m.label),
@@ -96,10 +100,13 @@
           const trials = rs.reduce((n, r) => n + r.trials, 0);
           return trials ? rs.reduce((n, r) => n + (r.passes.tests_pass_end || 0), 0) / trials : null;
         };
-        const card = (label, a, b, fmt) => h('div', { class: 'panel' },
+        const card = (label, a, b, format) => {
+          const fmt = (v) => (v === null || v === undefined ? '—' : format(v));
+          return h('div', { class: 'panel' },
           h('div', { class: 'muted' }, label),
           h('div', { class: 'value' }, fmt(a)),
           h('div', { class: 'muted' }, `vs ${fmt(b)} with no skills`));
+        };
         return h('div', { class: 'cost' },
           card('Median time per feature task', med('harness', 'medianDurationSec'), med('baseline', 'medianDurationSec'), (s) => `${Math.round(s)}s`),
           card('Median commits per feature task', med('harness', 'medianCommits'), med('baseline', 'medianCommits'), (n) => `${n}`),
@@ -120,7 +127,7 @@
           h('div', { class: 'panel harness' }, h('div', { class: 'value' }, pct(testFirst.harness)),
             h('div', {}, 'of runs wrote a failing test first ', h('strong', {}, 'with the harness')))),
 
-        h('h2', {}, 'What a typical run looks like'),
+        h('h2', {}, 'What a typical run looks like (illustrative)'),
         h('div', { class: 'panel timelines' },
           flow('No skills', [chip('bad', 'Edit production code'), chip('', 'Add tests'), chip('green', 'Tests pass'), chip('bad', 'Stop (uncommitted)')]),
           flow('With harness', [chip('', 'Plan slice'), chip('red', 'RED: failing test'), chip('green', 'GREEN: minimal code'), chip('commit', 'COMMIT'), chip('', 'REFACTOR')])),

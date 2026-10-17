@@ -84,7 +84,7 @@
             onclick: (e) => { e.stopPropagation(); toggle(); } }, r.model.label);
           const row = h('tr', { class: 'model-row', onclick: () => toggle() },
             h('td', { class: 'rank' }, `#${i + 1}`),
-            h('td', {}, toggleBtn, h('span', { class: 'tier' }, r.model.tier)),
+            h('td', {}, toggleBtn, r.model.tier ? h('span', { class: 'tier' }, r.model.tier) : null),
             h('td', {}, bar('harness', r.harness)),
             h('td', {}, bar('baseline', r.baseline)),
             h('td', { class: 'num' }, deltaSpan(r.lift)));

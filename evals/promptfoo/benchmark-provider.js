@@ -2,6 +2,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { getEvalRunConfig } = require('../fixtures/scenarios/agent-runner');
 
 function getVars(context) {
   return context?.vars || context?.test?.vars || context?.prompt?.vars || {};
@@ -194,6 +195,7 @@ class BenchmarkProvider {
     const vars = getVars(context);
     const scenarioModulePath = vars.scenarioModulePath;
     const summaryFilePath = vars.summaryFilePath;
+    const runConfig = getEvalRunConfig();
     let workspace = null;
 
     if (!scenarioModulePath && !summaryFilePath) {
@@ -223,6 +225,8 @@ class BenchmarkProvider {
       return {
         output,
         metadata: {
+          evalModel: runConfig.model,
+          evalCondition: runConfig.condition,
           fixtureId: output.fixtureId,
           scenarioId: output.scenarioId,
           scenarioFamily: output.scenarioFamily,

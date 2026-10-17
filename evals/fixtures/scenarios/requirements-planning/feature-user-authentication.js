@@ -1,6 +1,6 @@
 'use strict';
 
-const { setupWorkspaceAgentFiles, runCopilotAgent } = require('../agent-runner');
+const { getEvalRunConfig, setupWorkspaceAgentFiles, runCopilotAgent } = require('../agent-runner');
 
 function createEmptyPlan(agentOutput) {
   return {
@@ -78,6 +78,11 @@ module.exports = async function runScenario(input) {
     const path = require('path');
     const os = require('os');
     tempWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), 'copilot-requirements-planning-'));
+    runDir = tempWorkspace;
+  }
+
+  if (!workspaceDir && getEvalRunConfig().condition === 'harness') {
+    const path = require('path');
     
     // Copy requirements-planning agent and skill
     const REPO_ROOT = path.resolve(__dirname, '../../../../');
