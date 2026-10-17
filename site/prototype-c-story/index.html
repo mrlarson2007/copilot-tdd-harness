@@ -91,7 +91,11 @@
       function cost() {
         const feature = data.runs.filter((r) => data.scenarios.find((s) => s.id === r.scenario).family === 'feature');
         const med = (cond, key) => median(feature.filter((r) => r.condition === cond).map((r) => r[key]));
-        const tPass = (cond) => passRate({ condition: cond, metric: 'tests_pass_end' });
+        const tPass = (cond) => {
+          const rs = feature.filter((r) => r.condition === cond);
+          const trials = rs.reduce((n, r) => n + r.trials, 0);
+          return trials ? rs.reduce((n, r) => n + (r.passes.tests_pass_end || 0), 0) / trials : null;
+        };
         const card = (label, a, b, fmt) => h('div', { class: 'panel' },
           h('div', { class: 'muted' }, label),
           h('div', { class: 'value' }, fmt(a)),
@@ -99,7 +103,7 @@
         return h('div', { class: 'cost' },
           card('Median time per feature task', med('harness', 'medianDurationSec'), med('baseline', 'medianDurationSec'), (s) => `${Math.round(s)}s`),
           card('Median commits per feature task', med('harness', 'medianCommits'), med('baseline', 'medianCommits'), (n) => `${n}`),
-          card('Tests passing at the end', tPass('harness'), tPass('baseline'), pct));
+          card('Feature tasks ending with passing tests', tPass('harness'), tPass('baseline'), pct));
       }
 
       app.append(

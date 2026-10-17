@@ -77,7 +77,7 @@
       function heatmap() {
         const cols = data.metrics;
         const grid = h('div', { class: 'heatmap', style: { gridTemplateColumns: `110px repeat(${cols.length}, 1fr)` },
-          role: 'table', 'aria-label': 'Model by metric heatmap' });
+          role: 'img', 'aria-label': 'Model by metric heatmap. Hover a cell for exact values; the by-scenario table below has the same data in text form.' });
         grid.append(h('div', { class: 'hhead' }, ''), cols.map((c) => h('div', { class: 'hhead', title: c.description }, c.label)));
         for (const m of data.models) {
           grid.append(h('div', { class: 'rowhead' }, m.label));
@@ -85,7 +85,7 @@
             const f = { model: m.id, metric: c.id, scenario: state.scenario || undefined };
             const a = passRate({ ...f, condition: 'harness' });
             const b = passRate({ ...f, condition: 'baseline' });
-            const v = a === null ? null : state.heat === 'lift' ? a - b : state.heat === 'harness' ? a : b;
+            const v = state.heat === 'harness' ? a : state.heat === 'baseline' ? b : (a === null || b === null ? null : a - b);
             grid.append(h('div', { class: 'hcell', style: { background: heatColor(v, state.heat) },
               title: `${m.label} · ${c.label}: with harness ${pct(a)}, no skills ${pct(b)}` },
               v === null ? '—' : state.heat === 'lift' ? pts(v).replace(' pts', '') : pct(v)));

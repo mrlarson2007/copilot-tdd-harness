@@ -19,6 +19,9 @@
     tr.detail td { background: var(--panel); padding: 0 12px 12px; }
     tr.detail table td, tr.detail table th { border-bottom-color: #21262d; padding: 6px 8px; font-size: 0.9rem; }
     .rank { color: var(--muted); width: 32px; }
+    button.expand { background: none; border: 0; padding: 0; color: var(--text); }
+    button.expand::before { content: '▸ '; color: var(--muted); }
+    button.expand[aria-expanded="true"]::before { content: '▾ '; }
     .tier { font-size: 0.75rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; margin-left: 8px; }
   </style>
 </head>
@@ -34,21 +37,25 @@
       const rows = data.models.map((m) => {
         const harness = overallScore({ model: m.id, condition: 'harness' });
         const baseline = overallScore({ model: m.id, condition: 'baseline' });
-        return { model: m, harness, baseline, lift: harness - baseline };
+        return { model: m, harness, baseline, lift: harness === null || baseline === null ? null : harness - baseline };
       });
 
       let sortKey = 'harness';
-      const avg = (k) => rows.reduce((s, r) => s + r[k], 0) / rows.length;
-      const best = [...rows].sort((a, b) => b.lift - a.lift)[0];
+      const avg = (k) => {
+        const vals = rows.map((r) => r[k]).filter((v) => v !== null);
+        return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+      };
+      const byDesc = (k) => (a, b) => (b[k] ?? -Infinity) - (a[k] ?? -Infinity);
+      const best = [...rows].sort(byDesc('lift'))[0];
 
       const bar = (cls, r) => h('div', { class: 'cell' },
         h('span', { class: 'num' }, pct(r)),
         h('div', { class: `bar ${cls}` }, h('span', { style: { width: pct(r) } })));
 
-      const deltaSpan = (d) => h('span', { class: d >= 0 ? 'delta-pos' : 'delta-neg' }, pts(d));
+      const deltaSpan = (d) => h('span', { class: d === null ? 'muted' : d >= 0 ? 'delta-pos' : 'delta-neg' }, pts(d));
 
       function detailRow(model) {
-        return h('tr', { class: 'detail', hidden: true },
+        return h('tr', { class: 'detail', id: `detail-${model.id}`, hidden: true },
           h('td', { colspan: 5 },
             h('table', {},
               h('thead', {}, h('tr', {},
@@ -61,28 +68,29 @@
                   h('td', {}, metric.label),
                   h('td', { class: 'num' }, pct(a)),
                   h('td', { class: 'num' }, pct(b)),
-                  h('td', { class: 'num' }, deltaSpan(a - b)));
+                  h('td', { class: 'num' }, deltaSpan(a === null || b === null ? null : a - b)));
               })))));
       }
 
       function renderTable() {
-        const sorted = [...rows].sort((a, b) => b[sortKey] - a[sortKey]);
+        const sorted = [...rows].sort(byDesc(sortKey));
         const sortBtn = (key, label) => h('th', { class: 'num' },
           h('button', { onclick: () => { sortKey = key; table.replaceWith(renderTable()); }, 'aria-pressed': sortKey === key },
             label, sortKey === key ? ' ↓' : ''));
         const tbody = h('tbody');
         sorted.forEach((r, i) => {
           const detail = detailRow(r.model);
-          const row = h('tr', { class: 'model-row', tabindex: 0, 'aria-expanded': 'false',
-            onclick: () => toggle(), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } } },
+          const toggleBtn = h('button', { class: 'expand', 'aria-expanded': 'false', 'aria-controls': `detail-${r.model.id}`,
+            onclick: (e) => { e.stopPropagation(); toggle(); } }, r.model.label);
+          const row = h('tr', { class: 'model-row', onclick: () => toggle() },
             h('td', { class: 'rank' }, `#${i + 1}`),
-            h('td', {}, r.model.label, h('span', { class: 'tier' }, r.model.tier)),
+            h('td', {}, toggleBtn, h('span', { class: 'tier' }, r.model.tier)),
             h('td', {}, bar('harness', r.harness)),
             h('td', {}, bar('baseline', r.baseline)),
             h('td', { class: 'num' }, deltaSpan(r.lift)));
           function toggle() {
             detail.hidden = !detail.hidden;
-            row.setAttribute('aria-expanded', String(!detail.hidden));
+            toggleBtn.setAttribute('aria-expanded', String(!detail.hidden));
           }
           tbody.append(row, detail);
         });
