@@ -1,7 +1,8 @@
 # install-tdd-harness.ps1 — deploy the TDD harness into any project
 #
-# Usage: .\scripts\install-tdd-harness.ps1 [-TargetDir <path>]
+# Usage: .\scripts\install-tdd-harness.ps1 [-TargetDir <path>] [-Agent copilot|codex|both]
 #   TargetDir  Directory of the project to install into (default: current directory)
+#   Agent      Assistant integration to install (default: copilot)
 #
 # Safety contract: never overwrites existing files.
 # Prints "SKIP: <file> — already exists, merge manually" for conflicts.

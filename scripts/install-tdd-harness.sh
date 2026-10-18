@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # install-tdd-harness.sh — deploy the TDD harness into any project
 #
-# Usage: ./scripts/install-tdd-harness.sh [TARGET_DIR]
+# Usage: ./scripts/install-tdd-harness.sh [TARGET_DIR] [--agent copilot|codex|both]
 #   TARGET_DIR  Directory of the project to install into (default: current directory)
+#   --agent     Assistant integration to install (default: copilot)
 #
 # Safety contract: never overwrites existing files.
 # Prints "SKIP: <file> — already exists, merge manually" for conflicts.

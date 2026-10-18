@@ -132,3 +132,20 @@ test('WhenRuntimeOrOutputExceedsLimit_ShouldKillChildAndReturnBoundedFailure', a
     assert.ok(Buffer.byteLength(result.stdout + result.stderr) <= 64);
   }
 });
+
+test('WhenRunTimesOutAfterEvents_ShouldRetainParsedPartialEvidence', async () => {
+  const { runCodex } = require('./codex-runner');
+  const event = { type: 'item.completed', item: { type: 'agent_message', text: 'Still working' } };
+  const result = await runCodex('/workspace', 'task', {
+    timeoutMs: 10,
+    spawn: () => mockProcess((child) => {
+      const text = `${JSON.stringify(event)}\n`;
+      child.stdout.emit('data', Buffer.from(text.slice(0, 10)));
+      child.stdout.emit('data', Buffer.from(text.slice(10)));
+    }),
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /timeout/i);
+  assert.deepEqual(result.events, [event]);
+  assert.deepEqual(result.agentMessages, ['Still working']);
+});

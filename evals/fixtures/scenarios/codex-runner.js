@@ -11,12 +11,29 @@ function runCodex(workspaceDir, prompt, options = {}) {
     let stderr = '';
     const events = [];
     const decoder = new StringDecoder('utf8');
+    let pending = '';
     let error = null;
     let settled = false;
     let timer;
     let child;
     let outputBytes = 0;
     const maxOutputBytes = options.maxOutputBytes ?? 4 * 1024 * 1024;
+    const parseLine = (line) => {
+      if (!line.trim()) return;
+      try {
+        const event = JSON.parse(line);
+        if (!event || typeof event.type !== 'string') {
+          error ||= 'Invalid event';
+          return;
+        }
+        events.push(event);
+        if (event.type === 'turn.failed' || event.type === 'error') {
+          error ||= event.error?.message || event.message || event.type;
+        }
+      } catch {
+        error ||= 'Malformed JSON event';
+      }
+    };
     const finish = (exitCode) => {
       if (settled) return;
       settled = true;
@@ -51,8 +68,14 @@ function runCodex(workspaceDir, prompt, options = {}) {
       const remaining = Math.max(0, maxOutputBytes - outputBytes);
       const bounded = bytes.subarray(0, remaining);
       outputBytes += bounded.length;
-      if (stream === 'stdout') stdout += decoder.write(bounded);
-      else stderr += bounded.toString();
+      if (stream === 'stdout') {
+        const text = decoder.write(bounded);
+        stdout += text;
+        pending += text;
+        const lines = pending.split('\n');
+        pending = lines.pop();
+        for (const line of lines) parseLine(line);
+      } else stderr += bounded.toString();
       if (bytes.length > remaining) stop('Codex output limit exceeded');
     };
     try {
@@ -69,22 +92,9 @@ function runCodex(workspaceDir, prompt, options = {}) {
       child.stderr.on('data', (chunk) => collect('stderr', chunk));
       child.on('close', (code) => {
         if (settled) return;
-        stdout += decoder.end();
-        for (const line of stdout.split('\n').filter((line) => line.trim())) {
-          try {
-            const event = JSON.parse(line);
-            if (!event || typeof event.type !== 'string') {
-              error ||= 'Invalid event';
-              continue;
-            }
-            events.push(event);
-            if (event.type === 'turn.failed' || event.type === 'error') {
-              error ||= event.error?.message || event.message || event.type;
-            }
-          } catch {
-            error ||= 'Malformed JSON event';
-          }
-        }
+        const tail = decoder.end();
+        stdout += tail;
+        parseLine(pending + tail);
         finish(code);
       });
       child.on('error', (cause) => stop(cause.message));
