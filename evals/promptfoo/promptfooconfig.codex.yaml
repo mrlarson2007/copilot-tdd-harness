@@ -38,12 +38,12 @@ tests:
     vars:
       scenarioId: feature-add-subtract-command
       scenarioFamily: feature
-      taskPrompt: Use $tdd-workflow to add a subtract subcommand to the calc CLI using TDD. Support signed integer operands.
+      taskPrompt: Use $tdd to add a subtract subcommand to the calc CLI using TDD. Support signed integer operands.
   - description: Codex calculator-cli-go clarification before changes
     vars:
       scenarioId: clarify-arithmetic-operation
       scenarioFamily: clarification
-      taskPrompt: Use $tdd-workflow. Add another arithmetic subcommand to the calc CLI, but ask which operation to implement before making any changes. Stop after asking; do not implement or commit anything.
+      taskPrompt: Use $tdd. Add another arithmetic subcommand to the calc CLI, but ask which operation to implement before making any changes. Stop after asking; do not implement or commit anything.
 
 outputPath:
   - results/promptfoo-codex-benchmark.json

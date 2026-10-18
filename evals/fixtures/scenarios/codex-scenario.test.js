@@ -153,3 +153,12 @@ test('WhenCodexConfigScoresResults_ShouldDistinguishInfrastructureAndBehaviorWit
     if (output.infrastructure?.ok === false) assert.match(behavior.reason, /Infrastructure/);
   }
 });
+
+test('WhenCodexTasksInvokeHarness_ShouldUseTheCodexEntrySkill', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const config = fs.readFileSync(path.resolve(__dirname, '../../promptfoo/promptfooconfig.codex.yaml'), 'utf8');
+  const prompts = [...config.matchAll(/taskPrompt: (.+)/g)].map((match) => match[1]);
+  assert.equal(prompts.length, 2);
+  for (const prompt of prompts) assert.match(prompt, /Use \$tdd(?:\.| to)/);
+});
