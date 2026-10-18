@@ -57,3 +57,47 @@ test('WhenScenarioInfrastructureFails_ShouldFailClosedAndRetainEvidenceWithoutPr
     }
   }
 });
+
+test('WhenFeatureCompletes_ShouldScoreOnlyExternalTestsAndRecordInstalledBaseline', async () => {
+  const { runScenario } = require('./codex-scenario');
+  for (const mode of ['pass', 'suite-fail', 'wrong-result', 'git-error']) {
+    const commands = [];
+    let modelOptions;
+    const result = await runScenario(input, {
+      runCommand: (command, args, cwd) => {
+        commands.push({ command, args, cwd });
+        if (command === 'git' && args[0] === 'rev-parse') return success('setup-head\n');
+        if (command === 'git' && args[0] === 'diff') return success('AGENTS.md\n.agents/skills/tdd-workflow/SKILL.md\n');
+        if (command === 'git' && args[0] === 'status' && mode === 'git-error') return { ok: false, error: 'git error' };
+        if (command === 'git' && args[0] === 'rev-list') return success('1\n');
+        if (command === 'go' && args[0] === 'test') return { ...success(), ok: mode !== 'suite-fail', exitCode: mode === 'suite-fail' ? 1 : 0 };
+        if (command === 'go' && args[0] === 'run') {
+          const [left, right] = args.slice(-2).map(Number);
+          return success(`${mode === 'wrong-result' ? 999 : left - right}\n`);
+        }
+        return success();
+      },
+      runCodex: async (_cwd, _prompt, options) => {
+        modelOptions = options;
+        return completedRun();
+      },
+    });
+    assert.equal(result.summary.infrastructure.ok, mode !== 'git-error');
+    assert.equal(result.summary.behavior.passed, mode === 'pass');
+    assert.equal(result.summary.behavior.testsPassed, mode !== 'suite-fail');
+    assert.equal(result.summary.protocol.phaseOrderVerified, null);
+    assert.equal(result.summary.evidence.agentMessagesAreTestEvidence, false);
+    assert.equal(modelOptions.model, 'selected-model');
+    assert.equal(result.artifacts.setupBaselineHead, 'setup-head');
+    assert.deepEqual(result.artifacts.setupFiles, ['AGENTS.md', '.agents/skills/tdd-workflow/SKILL.md']);
+    const installer = commands.find(({ command }) => command === 'bash');
+    assert.match(installer.args[0], /scripts\/install-tdd-harness.sh$/);
+    assert.deepEqual(installer.args.slice(1), ['--agent', 'codex', '/workspace']);
+    assert.equal(commands.every(({ cwd }) => cwd === '/workspace'), true);
+    if (mode !== 'git-error') {
+      assert.ok(commands.find(({ command, args }) => command === 'git' && args[0] === 'rev-list' && args.at(-1) === 'setup-head..HEAD'));
+    }
+    assert.equal(result.artifacts.verification.filter(({ command, args }) => command === 'go' && args[0] === 'run').length, 3);
+    if (mode === 'pass') assert.equal(result.summary.worktreeClean, true);
+  }
+});

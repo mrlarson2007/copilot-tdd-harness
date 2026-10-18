@@ -59,6 +59,10 @@ async function runScenario(input, dependencies = {}) {
     if (!result.ok) return fail(`Setup failed: ${result.error || result.stderr || executable}`);
     if (args[0] === 'rev-parse') artifacts.setupBaselineHead = result.stdout.trim();
   }
+  const setupFiles = command('git', ['diff', '--name-only', `${input.initialHead}..${artifacts.setupBaselineHead}`], input.workspaceDir);
+  artifacts.setup.push({ command: 'git', args: ['diff', '--name-only'], ...setupFiles });
+  if (!setupFiles.ok) return fail('Cannot record setup baseline files');
+  artifacts.setupFiles = setupFiles.stdout.trim().split('\n').filter(Boolean);
   artifacts.runner = await runner(input.workspaceDir, input.prompt, {
     model: input.vars?.model, timeoutMs: input.vars?.timeoutMs,
   });
@@ -67,7 +71,27 @@ async function runScenario(input, dependencies = {}) {
   const tests = command('go', ['test', './...'], input.workspaceDir);
   artifacts.verification.push({ command: 'go', args: ['test', './...'], ...tests });
   if (tests.infrastructureError) return fail(`Verification failed: ${tests.error}`);
+  summary.behavior.testsPassed = tests.ok;
+  summary.behavior.functionalPassed = true;
+  for (const [left, right] of [[9, 4], [4, 9], [-3, -4]]) {
+    const args = ['run', '.', 'subtract', String(left), String(right)];
+    const check = command('go', args, input.workspaceDir);
+    artifacts.verification.push({ command: 'go', args, expected: String(left - right), ...check });
+    if (check.infrastructureError) return fail(`Verification failed: ${check.error}`);
+    summary.behavior.functionalPassed &&= check.ok && check.stdout.trim() === String(left - right);
+  }
+  for (const args of [
+    ['status', '--porcelain'],
+    ['rev-list', '--count', `${artifacts.setupBaselineHead}..HEAD`],
+  ]) {
+    const result = command('git', args, input.workspaceDir);
+    artifacts.verification.push({ command: 'git', args, ...result });
+    if (!result.ok) return fail(`Git inspection failed: ${result.error || result.stderr}`);
+    if (args[0] === 'status') summary.worktreeClean = result.stdout.trim() === '';
+    else summary.commitCount = Number(result.stdout.trim());
+  }
   summary.infrastructure.ok = true;
+  summary.behavior.passed = summary.behavior.testsPassed && summary.behavior.functionalPassed;
   return { summary, artifacts };
 }
 

@@ -19,7 +19,7 @@ $scriptDir  = Split-Path -Parent $MyInvocation.MyCommand.Path
 $harnessDir = (Resolve-Path (Join-Path $scriptDir "..")).Path
 $packageDir = Join-Path $harnessDir ".github"
 if ($Agent -eq "copilot") {
-    $targetDir = (Resolve-Path $TargetDir).Path
+    $targetDir = (Resolve-Path -LiteralPath $TargetDir).Path
 } else {
     $targetDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($TargetDir)
 }
@@ -56,12 +56,12 @@ function Install-File {
             $ancestor = Split-Path -Parent $ancestor
         }
     }
-    if (Test-Path $Dst) {
+    if (Test-Path -LiteralPath $Dst) {
         Write-Host "SKIP: $Dst — already exists, merge manually"
         $script:skipped++
     } else {
         $dstDir = Split-Path -Parent $Dst
-        if (-not (Test-Path $dstDir)) {
+        if (-not (Test-Path -LiteralPath $dstDir)) {
             New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
         }
         if ($Src -eq "-") {
@@ -78,7 +78,7 @@ function Report-ObsoleteFile {
     param([string]$RelativePath)
 
     $dst = Join-Path $targetDir $RelativePath
-    if (Test-Path $dst) {
+    if (Test-Path -LiteralPath $dst) {
         Write-Host "REMOVE: $dst — obsolete in the single-agent TDD harness"
         $script:obsolete++
     }

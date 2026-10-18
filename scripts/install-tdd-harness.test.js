@@ -131,3 +131,33 @@ test('WhenCodexDestinationUsesSymlinks_ShouldSkipWithoutFollowingLinks', t => {
     }
   }
 });
+
+test('WhenTargetFilesAlreadyExist_ShouldPreserveThemAcrossRepeatedInstalls', t => {
+  const preserved = [
+    'AGENTS.md', '.codex/config.toml', '.agents/skills/tdd/SKILL.md',
+    '.agents/skills/tdd-red/SKILL.md', '.agents/skills/custom/SKILL.md',
+    '.github/skills/tdd-red/assets/project-testing-patterns.md',
+    '.github/contracts/tdd-cycle-contracts.md',
+    '.github/instructions/tdd-patterns.instructions.md',
+  ];
+  for (const installer of installers) {
+    for (const agent of ['codex', 'both']) {
+      const target = path.join(fixture(t), 'project[1]');
+      fs.mkdirSync(target);
+      for (const relative of preserved) {
+        const file = path.join(target, relative);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, `keep ${relative}\n`);
+      }
+      for (let repeat = 0; repeat < 2; repeat++) {
+        const result = run(installer, target, installer.select(agent));
+        assert.equal(result.status, 0, `${installer.name}: ${result.stderr}`);
+        assert.match(result.stdout, /SKIP:.*already exists, merge manually/);
+        for (const relative of preserved) {
+          assert.equal(fs.readFileSync(path.join(target, relative), 'utf8'), `keep ${relative}\n`);
+        }
+        if (repeat) assert.match(result.stdout, /Install complete: 0 files installed,/);
+      }
+    }
+  }
+});
