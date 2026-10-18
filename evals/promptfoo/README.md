@@ -69,6 +69,8 @@ agent message, passing external tests, no commits after setup, and a clean final
 worktree. Question detection is a heuristic; final state cannot prove that no
 transient edits occurred. Feature functionality does not require a clean
 worktree; that state and commit count are reported separately.
+An independent `clarification_no_changes` assertion checks the clean-worktree
+and zero-post-setup-commit evidence rather than trusting `behavior.passed`.
 
 Infrastructure and behavior have separate metrics. Launch/auth/CLI failures,
 JSON errors, missing completion, timeouts (default ten minutes), and output-limit
@@ -78,6 +80,8 @@ zero or a final message claiming success.
 **Limits:** this adapter does not verify RED/GREEN test evidence or phase order.
 Those fields remain `null`, transitions are empty, and no protocol-fidelity
 assertion is used. Agent messages and commit names are not proof of test results.
+Codex source includes hook support; integrating hooks into this adapter is
+deferred, not an absent runtime capability.
 `workspace-write` may prevent writes to `.git`, so strict harness commit
 discipline may be unavailable even when feature functionality passes. Keep the
 sandbox intact rather than bypassing it to obtain a passing score. The initial
