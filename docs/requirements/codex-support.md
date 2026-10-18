@@ -19,7 +19,9 @@ Direct OpenAI API evaluations and Codex cloud are outside the initial scope.
 
 - The existing TDD phase rules remain authoritative.
 - Existing Copilot installation and evaluation behavior must remain compatible.
-- Current Codex documentation has not yet been verified for this plan.
+- Official documentation pages could not be fetched in the implementation
+  environment; the initial integration primitives were checked against the
+  official source snapshot linked below.
 - Hook availability, blocking semantics, skill metadata, and CLI/app parity
   must be verified before implementation; they are not established capabilities.
 - CLI evaluations measure model + Codex + harness, not the model in isolation.
@@ -38,6 +40,28 @@ Direct OpenAI API evaluations and Codex cloud are outside the initial scope.
   production edits.
 
 Recheck these findings against the implementation branch before making changes.
+
+## Initial Implementation Boundary
+
+The first milestone adds opt-in skill installation for CLI/app and a separate
+Codex CLI evaluation configuration. It does not complete lifecycle enforcement,
+verified phase-order scoring, extended model comparisons, or CI rollout.
+
+Implementation research used official OpenAI Codex source at
+[`8c076942cb70fba8e5c4732c23f1faabc4aed484`](https://github.com/openai/codex/tree/8c076942cb70fba8e5c4732c23f1faabc4aed484):
+
+| Integration surface | Source-verified contract | Remaining validation |
+| --- | --- | --- |
+| Repository skills | [`host_roots.rs`](https://github.com/openai/codex/blob/8c076942cb70fba8e5c4732c23f1faabc4aed484/codex-rs/ext/skills/src/host_roots.rs) discovers `.agents/skills` between project root and working directory | Confirm discovery in installed CLI/app versions and app worktrees |
+| Skill metadata | [`parser.rs`](https://github.com/openai/codex/blob/8c076942cb70fba8e5c4732c23f1faabc4aed484/codex-rs/skills/src/parser.rs) requires a description and supports a directory-derived default name | Check explicit wrapper activation in both clients |
+| Non-interactive runs | [`cli.rs`](https://github.com/openai/codex/blob/8c076942cb70fba8e5c4732c23f1faabc4aed484/codex-rs/exec/src/cli.rs) supports `exec`, JSONL output, and prompts from standard input | Run authenticated evaluations against a supported installed CLI |
+| Execution evidence | [`exec_events.rs`](https://github.com/openai/codex/blob/8c076942cb70fba8e5c4732c23f1faabc4aed484/codex-rs/exec/src/exec_events.rs) defines turn, command, file-change, message, and usage events | Verify phase ordering rather than inferring it from commits |
+| Lifecycle hooks | [`hooks/src/lib.rs`](https://github.com/openai/codex/blob/8c076942cb70fba8e5c4732c23f1faabc4aed484/codex-rs/hooks/src/lib.rs) declares lifecycle events including `PreToolUse`, `PostToolUse`, and `Stop` | Verify configuration, trust, blocking semantics, and CLI/app parity before installing hooks |
+
+Source inspection is not a supported-version guarantee or a live client
+acceptance result. No Codex executable was available in the implementation
+environment. The harness must not claim hook enforcement or verified TDD phase
+ordering based on this milestone alone.
 
 ## Implementation Sequence
 

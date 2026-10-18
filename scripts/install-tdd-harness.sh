@@ -12,7 +12,38 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HARNESS_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PACKAGE_DIR="${HARNESS_DIR}/.github"
-TARGET_DIR="${1:-$(pwd)}"
+TARGET_DIR="$(pwd)"
+agent="copilot"
+target_set=false
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --agent)
+            if [ "$#" -lt 2 ]; then
+                echo "ERROR: --agent requires copilot, codex, or both" >&2
+                exit 1
+            fi
+            agent="$2"
+            shift 2
+            ;;
+        -*)
+            echo "ERROR: unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            if [ "$target_set" = true ]; then
+                echo "ERROR: unexpected argument: $1" >&2
+                exit 1
+            fi
+            TARGET_DIR="$1"
+            target_set=true
+            shift
+            ;;
+    esac
+done
+case "$agent" in
+    copilot|codex|both) ;;
+    *) echo "ERROR: invalid agent: $agent" >&2; exit 1 ;;
+esac
 
 installed=0
 skipped=0

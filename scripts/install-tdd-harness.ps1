@@ -6,8 +6,11 @@
 # Safety contract: never overwrites existing files.
 # Prints "SKIP: <file> — already exists, merge manually" for conflicts.
 
+[CmdletBinding()]
 param(
-    [string]$TargetDir = (Get-Location).Path
+    [string]$TargetDir = (Get-Location).Path,
+    [ValidateSet("copilot", "codex", "both")]
+    [string]$Agent = "copilot"
 )
 
 $ErrorActionPreference = "Stop"
