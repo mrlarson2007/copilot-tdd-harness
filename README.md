@@ -95,8 +95,9 @@ skill discovery from a different working directory.
 This is an **initial support milestone**, not a claim of live integration
 validation. Installer parity/resource/safety tests run with Bash and PowerShell;
 Codex CLI/app discovery and end-to-end sessions have **not** been live-validated
-here. No blocking hooks are installed: this is opt-in guidance, not enforced
-pre-tool or pre-commit gating.
+here. Harness hook integration is not implemented or verified, and no blocking
+hooks are installed: this is opt-in guidance, not enforced pre-tool or pre-commit
+gating. This is a harness limitation, not a claim that Codex lacks hook support.
 
 Discovery and wrapper metadata were checked against official
 [`openai/codex` source at `8c076942`](https://github.com/openai/codex/tree/8c076942cb70fba8e5c4732c23f1faabc4aed484):
@@ -104,7 +105,8 @@ Discovery and wrapper metadata were checked against official
 discovers repository `.agents/skills`, and
 [`parser.rs`](https://github.com/openai/codex/blob/8c076942cb70fba8e5c4732c23f1faabc4aed484/codex-rs/skills/src/parser.rs)
 parses `SKILL.md` frontmatter. Wrappers explicitly supply both `name` and
-`description` (the pinned parser requires a description and can default a name).
+`description` (the pinned parser requires a description; name is optional with
+a directory-name fallback).
 Official documentation hosting was unavailable during verification; these
 source checks do not establish app-specific UI behavior.
 
