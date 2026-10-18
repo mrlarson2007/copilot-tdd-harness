@@ -127,3 +127,29 @@ test('WhenClarificationIsRequested_ShouldRequireQuestionAndNoPostSetupChanges', 
     assert.equal(result.summary.evidence.clarificationDetection, 'agent-message question heuristic');
   }
 });
+
+test('WhenCodexConfigScoresResults_ShouldDistinguishInfrastructureAndBehaviorWithoutProtocolScoring', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const config = fs.readFileSync(path.resolve(__dirname, '../../promptfoo/promptfooconfig.codex.yaml'), 'utf8');
+  assert.match(config, /file:\/\/\.\/benchmark-provider\.js/);
+  assert.match(config, /scenarioModulePath: \.\.\/fixtures\/scenarios\/codex-scenario\.js/);
+  assert.match(config, /fixtureSourcePath: \.\.\/fixtures\/projects\/calculator-cli-go\/clean/);
+  assert.match(config, /scenarioFamily: feature/);
+  assert.match(config, /scenarioFamily: clarification/);
+  assert.doesNotMatch(config, /assertions\/protocol-fidelity|agent-runner|copilot --/);
+  const scorers = [...config.matchAll(/value: \|\n((?: {8}[^\n]*\n)+)/g)]
+    .map((match) => new Function('output', match[1].replace(/^ {8}/gm, '')));
+  assert.equal(scorers.length, 2);
+  for (const output of [
+    { runtime: 'codex', infrastructure: { ok: false, error: 'auth' }, behavior: { passed: true } },
+    { runtime: 'codex', infrastructure: { ok: true }, behavior: { passed: false } },
+    { runtime: 'codex', infrastructure: { ok: true }, behavior: { passed: true } },
+    {},
+  ]) {
+    const [infrastructure, behavior] = scorers.map((score) => score(JSON.stringify(output)));
+    assert.equal(infrastructure.pass, output.infrastructure?.ok === true);
+    assert.equal(behavior.pass, output.infrastructure?.ok === true && output.behavior?.passed === true);
+    if (output.infrastructure?.ok === false) assert.match(behavior.reason, /Infrastructure/);
+  }
+});

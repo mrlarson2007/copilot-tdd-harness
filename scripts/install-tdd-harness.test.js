@@ -161,3 +161,30 @@ test('WhenTargetFilesAlreadyExist_ShouldPreserveThemAcrossRepeatedInstalls', t =
     }
   }
 });
+
+test('WhenAgentSelectionChanges_ShouldRetainDefaultCopilotDistributionAndComposeBoth', t => {
+  function installedPaths(result, target) {
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.split('\n').filter(line => line.startsWith('INSTALL: '))
+      .map(line => line.slice(`INSTALL: ${target}/`.length)).sort();
+  }
+  const distributions = [];
+  for (const installer of installers) {
+    const byAgent = {};
+    for (const agent of ['default', 'copilot', 'codex', 'both']) {
+      const target = fixture(t);
+      const result = run(installer, target, agent === 'default' ? [] : installer.select(agent));
+      byAgent[agent] = installedPaths(result, target);
+      if (agent === 'default' || agent === 'copilot') {
+        assert.equal(fs.existsSync(path.join(target, '.agents')), false);
+        assert.equal(fs.existsSync(path.join(target, '.github/instructions/tdd-patterns.instructions.md')), false);
+        assert.match(result.stdout, /Next steps: Run \/tdd-setup in Copilot Chat/);
+        assert.doesNotMatch(result.stdout, /Codex/);
+      }
+    }
+    assert.deepEqual(byAgent.default, byAgent.copilot);
+    assert.deepEqual(byAgent.both, [...new Set([...byAgent.copilot, ...byAgent.codex])].sort());
+    distributions.push(byAgent);
+  }
+  assert.deepEqual(distributions[0], distributions[1]);
+});
