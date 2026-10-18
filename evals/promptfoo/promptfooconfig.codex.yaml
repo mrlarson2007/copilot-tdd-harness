@@ -32,6 +32,13 @@ defaultTest:
         if (s?.runtime !== 'codex' || s?.infrastructure?.ok !== true) return { pass: false, score: 0, reason: 'Infrastructure failure; behavior not evaluated' };
         const pass = s?.behavior?.passed === true;
         return { pass, score: pass ? 1 : 0, reason: pass ? 'Externally checked behavior passed' : 'Behavior failed external functionality or clarification checks' };
+    - type: javascript
+      metric: clarification_no_changes
+      value: |
+        const s = typeof output === 'string' ? JSON.parse(output) : output;
+        if (s?.runtime !== 'codex' || s?.infrastructure?.ok !== true) return { pass: false, score: 0, reason: 'Infrastructure failure; repository state not verified' };
+        const pass = s?.scenarioFamily === 'feature' || (s?.scenarioFamily === 'clarification' && s?.worktreeClean === true && s?.commitCount === 0);
+        return { pass, score: pass ? 1 : 0, reason: pass ? 'No clarification repository changes (or feature case)' : 'Clarification changed the worktree or committed project files, or state evidence is missing' };
 
 tests:
   - description: Codex calculator-cli-go subtract functionality

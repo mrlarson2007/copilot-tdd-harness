@@ -140,7 +140,7 @@ test('WhenCodexConfigScoresResults_ShouldDistinguishInfrastructureAndBehaviorWit
   assert.doesNotMatch(config, /assertions\/protocol-fidelity|agent-runner|copilot --/);
   const scorers = [...config.matchAll(/value: \|\n((?: {8}[^\n]*\n)+)/g)]
     .map((match) => new Function('output', match[1].replace(/^ {8}/gm, '')));
-  assert.equal(scorers.length, 2);
+  assert.equal(scorers.length, 3);
   for (const output of [
     { runtime: 'codex', infrastructure: { ok: false, error: 'auth' }, behavior: { passed: true } },
     { runtime: 'codex', infrastructure: { ok: true }, behavior: { passed: false } },
@@ -161,4 +161,27 @@ test('WhenCodexTasksInvokeHarness_ShouldUseTheCodexEntrySkill', () => {
   const prompts = [...config.matchAll(/taskPrompt: (.+)/g)].map((match) => match[1]);
   assert.equal(prompts.length, 2);
   for (const prompt of prompts) assert.match(prompt, /Use \$tdd(?:\.| to)/);
+});
+
+test('WhenClarificationSummaryClaimsSuccess_ShouldIndependentlyRejectRepositoryChanges', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const config = fs.readFileSync(path.resolve(__dirname, '../../promptfoo/promptfooconfig.codex.yaml'), 'utf8');
+  assert.match(config, /metric: clarification_no_changes/);
+  const match = config.match(/metric: clarification_no_changes\n\s+value: \|\n((?: {8}[^\n]*\n)+)/);
+  assert.ok(match);
+  const score = new Function('output', match[1].replace(/^ {8}/gm, ''));
+  const base = {
+    runtime: 'codex', scenarioFamily: 'clarification',
+    infrastructure: { ok: true }, behavior: { passed: true },
+  };
+  for (const [state, expected] of [
+    [{ worktreeClean: true, commitCount: 0 }, true],
+    [{ worktreeClean: false, commitCount: 0 }, false],
+    [{ worktreeClean: true, commitCount: 1 }, false],
+    [{ commitCount: 0 }, false],
+    [{ worktreeClean: true }, false],
+  ]) {
+    assert.equal(score(JSON.stringify({ ...base, ...state })).pass, expected);
+  }
 });
