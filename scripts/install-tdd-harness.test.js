@@ -188,3 +188,16 @@ test('WhenAgentSelectionChanges_ShouldRetainDefaultCopilotDistributionAndCompose
   }
   assert.deepEqual(distributions[0], distributions[1]);
 });
+
+test('WhenCodexOnlyIsSelected_ShouldNotProbeCopilotMigrationFiles', t => {
+  for (const installer of installers) {
+    const target = fixture(t);
+    const legacy = path.join(target, '.github/tdd-config.json');
+    fs.mkdirSync(path.dirname(legacy));
+    fs.writeFileSync(legacy, '{"keep":true}\n');
+    const result = run(installer, target, installer.select('codex'));
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stdout, /REMOVE:|Obsolete files detected:/);
+    assert.equal(fs.readFileSync(legacy, 'utf8'), '{"keep":true}\n');
+  }
+});

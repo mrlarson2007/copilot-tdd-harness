@@ -158,8 +158,10 @@ No blocking hooks are installed; this is opt-in guidance, not enforcement.
     Install-File -Src "-" -Dst (Join-Path $targetDir ".agents/skills/tdd/SKILL.md") -Content $entry
 }
 
-foreach ($obsoleteFile in $obsoleteFiles) {
-    Report-ObsoleteFile -RelativePath $obsoleteFile
+if ($Agent -ne "codex") {
+    foreach ($obsoleteFile in $obsoleteFiles) {
+        Report-ObsoleteFile -RelativePath $obsoleteFile
+    }
 }
 
 Write-Host ""

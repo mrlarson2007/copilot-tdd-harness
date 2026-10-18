@@ -170,9 +170,11 @@ EOF
     install_file - "${TARGET_DIR}/.agents/skills/tdd/SKILL.md" "$entry"
 fi
 
-for rel in "${obsolete_files[@]}"; do
-    report_obsolete_file "$rel"
-done
+if [ "$agent" != codex ]; then
+    for rel in "${obsolete_files[@]}"; do
+        report_obsolete_file "$rel"
+    done
+fi
 
 echo ""
 echo "Install complete: ${installed} files installed, ${skipped} files skipped."
