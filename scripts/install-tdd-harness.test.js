@@ -73,3 +73,26 @@ test('WhenCodexIsSelected_ShouldExposeThinNamedWrappersForEveryCanonicalSkill', 
   }
   assert.deepEqual(wrappers[0], wrappers[1], 'both installers generate identical wrappers');
 });
+
+test('WhenTddIsInvoked_ShouldOfferSetupGatedInlineCanonicalOrchestration', t => {
+  const entries = [];
+  for (const installer of installers) {
+    const target = fixture(t);
+    assert.equal(run(installer, target, installer.select('codex')).status, 0);
+    const entry = fs.readFileSync(path.join(target, '.agents/skills/tdd/SKILL.md'), 'utf8');
+    assert.match(entry, /^---\nname: tdd\ndescription: .+\n---\n/);
+    for (const name of ['tdd-workflow', 'tdd-planning', 'tdd-cycle-runner', 'tdd-red',
+      'tdd-green', 'tdd-test-run', 'tdd-commit', 'tdd-refactor', 'tdd-setup']) {
+      assert.ok(entry.includes(`.github/skills/${name}/SKILL.md`), name);
+    }
+    for (const phrase of ['Explicit opt-in', '$tdd', 'stop and request $tdd-setup',
+      'before any behavior edits', '.github/instructions/tdd-patterns.instructions.md',
+      'single agent inline', 'No Copilot task or handoff tools', 'clarification',
+      'expected result', 'actual output', 'commit immediately after GREEN',
+      '.github/contracts/tdd-cycle-contracts.md', 'No blocking hooks']) {
+      assert.ok(entry.includes(phrase), phrase);
+    }
+    entries.push(entry);
+  }
+  assert.equal(entries[0], entries[1]);
+});
