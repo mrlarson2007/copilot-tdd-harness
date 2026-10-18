@@ -12,7 +12,15 @@ function runCodex(workspaceDir, prompt, options = {}) {
     const events = [];
     const decoder = new StringDecoder('utf8');
     let error = null;
+    let settled = false;
+    let timer;
+    let child;
+    let outputBytes = 0;
+    const maxOutputBytes = options.maxOutputBytes ?? 4 * 1024 * 1024;
     const finish = (exitCode) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       const completed = events.some((event) => event.type === 'turn.completed');
       error ||= exitCode !== 0 ? `Codex exit code ${exitCode}` : null;
       error ||= completed ? null : 'Missing completion event';
@@ -24,18 +32,43 @@ function runCodex(workspaceDir, prompt, options = {}) {
         usage: events.filter((event) => event.type === 'turn.completed' && event.usage).map((event) => event.usage),
       });
     };
+    const stop = (message) => {
+      if (settled) return;
+      error ||= message;
+      if (child) {
+        try {
+          if (process.platform !== 'win32' && child.pid) process.kill(-child.pid, 'SIGKILL');
+          else child.kill('SIGKILL');
+        } catch {
+          child.kill('SIGKILL');
+        }
+      }
+      finish(null);
+    };
+    const collect = (stream, chunk) => {
+      if (settled) return;
+      const bytes = Buffer.from(chunk);
+      const remaining = Math.max(0, maxOutputBytes - outputBytes);
+      const bounded = bytes.subarray(0, remaining);
+      outputBytes += bounded.length;
+      if (stream === 'stdout') stdout += decoder.write(bounded);
+      else stderr += bounded.toString();
+      if (bytes.length > remaining) stop('Codex output limit exceeded');
+    };
     try {
-      const child = (options.spawn || spawn)('codex', [
+      child = (options.spawn || spawn)('codex', [
         'exec', '--json', '--sandbox', 'workspace-write',
         ...(model ? ['--model', model] : []), '-',
       ], {
         cwd: workspaceDir,
         shell: false,
+        detached: process.platform !== 'win32',
         stdio: ['pipe', 'pipe', 'pipe'],
       });
-      child.stdout.on('data', (chunk) => { stdout += decoder.write(chunk); });
-      child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+      child.stdout.on('data', (chunk) => collect('stdout', chunk));
+      child.stderr.on('data', (chunk) => collect('stderr', chunk));
       child.on('close', (code) => {
+        if (settled) return;
         stdout += decoder.end();
         for (const line of stdout.split('\n').filter((line) => line.trim())) {
           try {
@@ -54,11 +87,12 @@ function runCodex(workspaceDir, prompt, options = {}) {
         }
         finish(code);
       });
-      child.on('error', (cause) => { error ||= cause.message; finish(null); });
+      child.on('error', (cause) => stop(cause.message));
+      child.stdin.on('error', (cause) => stop(cause.message));
+      timer = setTimeout(() => stop('Codex timeout exceeded'), options.timeoutMs ?? 10 * 60 * 1000);
       child.stdin.end(prompt);
     } catch (cause) {
-      error = cause.message;
-      finish(null);
+      stop(cause.message);
     }
   });
 }

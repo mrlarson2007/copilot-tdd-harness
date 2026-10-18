@@ -107,3 +107,28 @@ test('WhenEventsAreFragmented_ShouldCaptureSuccessfulRunUsingSafeModelArguments'
     assert.deepEqual(child.kills, []);
   }
 });
+
+test('WhenRuntimeOrOutputExceedsLimit_ShouldKillChildAndReturnBoundedFailure', async () => {
+  const { runCodex } = require('./codex-runner');
+  for (const mode of ['timeout', 'stdout', 'stderr', 'stdin']) {
+    let child;
+    const result = await runCodex('/workspace', 'task', {
+      timeoutMs: 10,
+      maxOutputBytes: 64,
+      spawn: () => {
+        child = mockProcess((proc) => {
+          if (mode === 'stdout' || mode === 'stderr') proc[mode].emit('data', Buffer.alloc(1000, 'x'));
+          if (mode === 'stdin') proc.stdin.emit('error', new Error('EPIPE'));
+        });
+        return child;
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.match(result.error, mode === 'timeout' ? /timeout/i : mode === 'stdin' ? /EPIPE/ : /output limit/i);
+    assert.ok(Buffer.byteLength(result.stdout + result.stderr) <= 64);
+    assert.deepEqual(child.kills, ['SIGKILL']);
+    child.emit('close', 0);
+    child.stdout.emit('data', Buffer.from('ignored'));
+    assert.ok(Buffer.byteLength(result.stdout + result.stderr) <= 64);
+  }
+});

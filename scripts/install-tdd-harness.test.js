@@ -96,3 +96,38 @@ test('WhenTddIsInvoked_ShouldOfferSetupGatedInlineCanonicalOrchestration', t => 
   }
   assert.equal(entries[0], entries[1]);
 });
+
+test('WhenCodexDestinationUsesSymlinks_ShouldSkipWithoutFollowingLinks', t => {
+  const cases = [
+    ['.agents', false], ['.agents/skills/tdd', false],
+    ['.agents/skills/tdd/SKILL.md', false], ['.agents/skills/tdd/SKILL.md', true],
+    ['.github/skills', false], ['.github/contracts/tdd-cycle-contracts.md', false],
+    ['.', true],
+  ];
+  for (const installer of installers) {
+    for (const agent of ['codex', 'both']) {
+      for (const [relative, existing] of cases) {
+        const scratch = fixture(t);
+        const target = path.join(scratch, 'project');
+        const outside = path.join(scratch, 'outside');
+        const fileLink = relative.endsWith('.md');
+        fs.mkdirSync(target);
+        if (existing) {
+          if (fileLink) fs.writeFileSync(outside, 'untouched');
+          else fs.mkdirSync(outside);
+        }
+        const link = path.join(target, relative);
+        if (relative === '.') fs.rmdirSync(target);
+        else fs.mkdirSync(path.dirname(link), { recursive: true });
+        fs.symlinkSync(outside, link, fileLink ? 'file' : 'dir');
+        const result = run(installer, target, installer.select(agent));
+        assert.equal(result.status, 0, `${installer.name}: ${relative}: ${result.stderr}`);
+        assert.ok(fs.lstatSync(link).isSymbolicLink());
+        assert.match(result.stdout, /SKIP:.*merge manually/);
+        if (!existing) assert.equal(fs.existsSync(outside), false, relative);
+        else if (fileLink) assert.equal(fs.readFileSync(outside, 'utf8'), 'untouched');
+        else assert.deepEqual(fs.readdirSync(outside), []);
+      }
+    }
+  }
+});
