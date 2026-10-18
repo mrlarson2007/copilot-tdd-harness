@@ -101,3 +101,29 @@ test('WhenFeatureCompletes_ShouldScoreOnlyExternalTestsAndRecordInstalledBaselin
     if (mode === 'pass') assert.equal(result.summary.worktreeClean, true);
   }
 });
+
+test('WhenClarificationIsRequested_ShouldRequireQuestionAndNoPostSetupChanges', async () => {
+  const { runScenario } = require('./codex-scenario');
+  for (const mode of ['question', 'no-question', 'dirty', 'commit']) {
+    const commands = [];
+    const result = await runScenario({ ...input, scenarioFamily: 'clarification' }, {
+      runCommand: (command, args) => {
+        commands.push([command, args]);
+        if (args[0] === 'rev-parse') return success('setup-head\n');
+        if (args[0] === 'status') return success(mode === 'dirty' ? ' M main.go\n' : '');
+        if (args[0] === 'rev-list') return success(mode === 'commit' ? '1\n' : '0\n');
+        return success();
+      },
+      runCodex: async () => completedRun({
+        agentMessages: mode === 'no-question' ? ['I implemented subtract.'] : ['Which arithmetic operation should I implement?'],
+      }),
+    });
+    assert.equal(result.summary.infrastructure.ok, true);
+    assert.equal(result.summary.behavior.passed, mode === 'question');
+    assert.equal(result.summary.clarificationAsked, mode !== 'no-question');
+    assert.equal(result.summary.clarificationResolved, false);
+    assert.equal(result.summary.protocol.phaseOrderVerified, null);
+    assert.equal(commands.filter(([command, args]) => command === 'go' && args[0] === 'run').length, 0);
+    assert.equal(result.summary.evidence.clarificationDetection, 'agent-message question heuristic');
+  }
+});

@@ -73,7 +73,8 @@ async function runScenario(input, dependencies = {}) {
   if (tests.infrastructureError) return fail(`Verification failed: ${tests.error}`);
   summary.behavior.testsPassed = tests.ok;
   summary.behavior.functionalPassed = true;
-  for (const [left, right] of [[9, 4], [4, 9], [-3, -4]]) {
+  const clarification = input.scenarioFamily === 'clarification';
+  for (const [left, right] of clarification ? [] : [[9, 4], [4, 9], [-3, -4]]) {
     const args = ['run', '.', 'subtract', String(left), String(right)];
     const check = command('go', args, input.workspaceDir);
     artifacts.verification.push({ command: 'go', args, expected: String(left - right), ...check });
@@ -91,7 +92,12 @@ async function runScenario(input, dependencies = {}) {
     else summary.commitCount = Number(result.stdout.trim());
   }
   summary.infrastructure.ok = true;
-  summary.behavior.passed = summary.behavior.testsPassed && summary.behavior.functionalPassed;
+  summary.clarificationAsked = artifacts.runner.agentMessages.some((message) => /\b(?:which|what|should|clarify|would|do you)\b[^?]*\?/i.test(message));
+  summary.clarificationResolved = false;
+  summary.evidence.clarificationDetection = 'agent-message question heuristic';
+  summary.behavior.passed = tests.ok && (clarification
+    ? summary.clarificationAsked && summary.worktreeClean && summary.commitCount === 0
+    : summary.behavior.functionalPassed);
   return { summary, artifacts };
 }
 
