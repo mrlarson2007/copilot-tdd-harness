@@ -100,6 +100,45 @@ The canonical .github/skills guidance is authoritative; do not duplicate phase p
 "@
         Install-File -Src "-" -Dst (Join-Path $targetDir ".agents/skills/${name}/SKILL.md") -Content $wrapper
     }
+    $entry = @'
+---
+name: tdd
+description: Explicit opt-in to the canonical TDD workflow for a feature or fix.
+---
+
+Activate only when the user explicitly invokes $tdd or requests this workflow.
+Read paths below from the repository root; .github/skills remains authoritative.
+First check .github/instructions/tdd-patterns.instructions.md. If absent,
+stop and request $tdd-setup before any behavior edits; follow
+.github/skills/tdd-setup/SKILL.md and obtain its required user confirmation.
+Otherwise load the project instructions before planning or editing.
+
+Load .github/skills/tdd-workflow/SKILL.md and
+.github/skills/tdd-planning/SKILL.md. Ask for clarification when scope,
+expected behavior, commands, or authorization is ambiguous; do not guess.
+Use .github/skills/tdd-cycle-runner/SKILL.md to orchestrate one chosen slice.
+Run as a single agent inline. No Copilot task or handoff tools are required:
+interpret agent/handoff references as logical phase boundaries, not tool calls.
+Use .github/contracts/tdd-cycle-contracts.md as local phase records.
+
+Progressively load the relevant canonical phase guidance and its assets:
+- .github/skills/tdd-red/SKILL.md
+- .github/skills/tdd-green/SKILL.md
+- .github/skills/tdd-test-run/SKILL.md
+- .github/skills/tdd-commit/SKILL.md
+- .github/skills/tdd-refactor/SKILL.md
+
+Follow the canonical phase policy, not a second copy here. Execute verification
+commands with an explicit expected result and inspect actual output after edits;
+never claim unrun checks. Stop on unexpected results and apply only the scoped
+rollback specified by canonical verification guidance. Make a real atomic
+commit immediately after GREEN; assess refactoring, verify and commit it before
+the next RED. If commands or commits are blocked, stop and report the blocker.
+Report completed slices, tests, commits, and remaining work; clarify whether to
+continue after a cycle when the user's requested scope is unclear.
+No blocking hooks are installed; this is opt-in guidance, not enforcement.
+'@
+    Install-File -Src "-" -Dst (Join-Path $targetDir ".agents/skills/tdd/SKILL.md") -Content $entry
 }
 
 foreach ($obsoleteFile in $obsoleteFiles) {
@@ -113,4 +152,7 @@ if ($obsolete -gt 0) {
 }
 if ($Agent -ne "codex") {
     Write-Host "Next steps: Run /tdd-setup in Copilot Chat to generate the project-specific TDD instructions, then switch to the tdd agent when you want the workflow."
+}
+if ($Agent -ne "copilot") {
+    Write-Host 'Next steps (Codex CLI/app): Run $tdd-setup, then explicitly invoke $tdd. Restart/reopen the app and check its skill picker if needed.'
 }

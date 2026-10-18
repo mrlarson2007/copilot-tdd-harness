@@ -56,3 +56,54 @@ test('WhenCliFailsOrOmitsCompletion_ShouldFailClosedWithSeparateDiagnostics', as
     assert.equal(result.exitCode, exitCode);
   }
 });
+
+test('WhenEventsAreFragmented_ShouldCaptureSuccessfulRunUsingSafeModelArguments', async () => {
+  const { runCodex } = require('./codex-runner');
+  const prompt = '--dangerously-bypass-approvals-and-sandbox $(touch unsafe)';
+  const events = [
+    { type: 'thread.started', thread_id: 'thread' },
+    { type: 'item.completed', item: { type: 'agent_message', text: 'Done ✓' } },
+    { type: 'item.completed', item: { type: 'command_execution', command: 'go test ./...', exit_code: 0 } },
+    { type: 'turn.completed', usage: { input_tokens: 12, output_tokens: 4 } },
+  ];
+  const stdout = events.map(JSON.stringify).join('\n');
+  for (const [model, env, selected] of [
+    ['explicit model', { EVAL_MODEL: 'fallback' }, 'explicit model'],
+    [undefined, { EVAL_MODEL: 'fallback' }, 'fallback'],
+    [undefined, {}, null],
+  ]) {
+    let invocation;
+    let child;
+    const result = await runCodex('/workspace', prompt, {
+      model, env,
+      spawn: (command, args, options) => {
+        invocation = { command, args, options };
+        child = mockProcess((proc) => {
+          const bytes = Buffer.from(stdout);
+          for (let i = 0; i < bytes.length; i += 2) proc.stdout.emit('data', bytes.subarray(i, i + 2));
+          proc.stderr.emit('data', Buffer.from('diagnostic'));
+          proc.emit('close', 0);
+        });
+        return child;
+      },
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.model, selected);
+    assert.equal(result.stdout, stdout);
+    assert.deepEqual(result.events, events);
+    assert.deepEqual(result.agentMessages, ['Done ✓']);
+    assert.deepEqual(result.commandExecutions, [events[2].item]);
+    assert.deepEqual(result.usage, [events[3].usage]);
+    assert.equal(typeof result.durationMs, 'number');
+    assert.equal(invocation.command, 'codex');
+    assert.deepEqual(invocation.args, [
+      'exec', '--json', '--sandbox', 'workspace-write',
+      ...(selected ? ['--model', selected] : []), '-',
+    ]);
+    assert.equal(invocation.options.shell, false);
+    assert.equal(invocation.options.cwd, '/workspace');
+    assert.deepEqual(invocation.options.stdio, ['pipe', 'pipe', 'pipe']);
+    assert.equal(child.prompt, prompt);
+    assert.deepEqual(child.kills, []);
+  }
+});
