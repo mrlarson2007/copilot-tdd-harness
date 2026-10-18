@@ -65,9 +65,13 @@ function Report-ObsoleteFile {
 }
 
 # Install packaged .github files, excluding project-specific setup files
-Get-ChildItem -Path $packageDir -Recurse -File |
+$resourceRoots = @($packageDir)
+if ($Agent -eq "codex") {
+    $resourceRoots = @((Join-Path $packageDir "skills"), (Join-Path $packageDir "contracts"))
+}
+Get-ChildItem -Path $resourceRoots -Recurse -File |
     Where-Object {
-        $_.FullName -notlike "*\instructions\tdd-patterns.instructions.md"
+        ($_.FullName.Replace('\', '/') -notlike "*/instructions/tdd-patterns.instructions.md")
     } |
     Sort-Object FullName |
     ForEach-Object {
@@ -86,4 +90,6 @@ Write-Host "Install complete: $installed files installed, $skipped files skipped
 if ($obsolete -gt 0) {
     Write-Host "Obsolete files detected: $obsolete. Remove the files listed above to finish upgrading to the single-agent TDD harness."
 }
-Write-Host "Next steps: Run /tdd-setup in Copilot Chat to generate the project-specific TDD instructions, then switch to the tdd agent when you want the workflow."
+if ($Agent -ne "codex") {
+    Write-Host "Next steps: Run /tdd-setup in Copilot Chat to generate the project-specific TDD instructions, then switch to the tdd agent when you want the workflow."
+}

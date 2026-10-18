@@ -87,11 +87,15 @@ report_obsolete_file() {
 }
 
 # Install packaged .github files, excluding project-specific setup files
+resource_roots=("${PACKAGE_DIR}")
+if [ "$agent" = codex ]; then
+    resource_roots=("${PACKAGE_DIR}/skills" "${PACKAGE_DIR}/contracts")
+fi
 while IFS= read -r -d '' src_file; do
     rel_path="${src_file#${PACKAGE_DIR}/}"
     dst_file="${TARGET_DIR}/.github/${rel_path}"
     install_file "$src_file" "$dst_file"
-done < <(find "${PACKAGE_DIR}" -type f \
+done < <(find "${resource_roots[@]}" -type f \
     ! -path "${PACKAGE_DIR}/instructions/tdd-patterns.instructions.md" \
     -print0)
 
@@ -104,4 +108,6 @@ echo "Install complete: ${installed} files installed, ${skipped} files skipped."
 if [ "$obsolete" -gt 0 ]; then
     echo "Obsolete files detected: ${obsolete}. Remove the files listed above to finish upgrading to the single-agent TDD harness."
 fi
-echo "Next steps: Run /tdd-setup in Copilot Chat to generate the project-specific TDD instructions, then switch to the tdd agent when you want the workflow."
+if [ "$agent" != codex ]; then
+    echo "Next steps: Run /tdd-setup in Copilot Chat to generate the project-specific TDD instructions, then switch to the tdd agent when you want the workflow."
+fi

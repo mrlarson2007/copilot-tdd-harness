@@ -34,3 +34,22 @@ test('WhenAgentArgumentsAreInvalid_ShouldRejectBeforeWriting', t => {
     }
   }
 });
+
+test('WhenCodexIsSelected_ShouldInstallOnlyCanonicalTddResources', t => {
+  for (const installer of installers) {
+    const target = fixture(t);
+    const result = run(installer, target, installer.select('codex'));
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(fs.readdirSync(path.join(target, '.github')).sort(), ['contracts', 'skills']);
+    for (const folder of ['skills', 'contracts']) {
+      for (const relative of fs.readdirSync(path.join(root, '.github', folder), { recursive: true })) {
+        const source = path.join(root, '.github', folder, relative);
+        if (fs.statSync(source).isFile()) {
+          assert.deepEqual(fs.readFileSync(path.join(target, '.github', folder, relative)),
+            fs.readFileSync(source), `${installer.name}: ${relative}`);
+        }
+      }
+    }
+    assert.equal(fs.existsSync(path.join(target, '.github/instructions/tdd-patterns.instructions.md')), false);
+  }
+});
