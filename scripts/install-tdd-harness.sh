@@ -66,6 +66,17 @@ obsolete_files=(
 install_file() {
     local src="$1"
     local dst="$2"
+    if [ "$agent" != copilot ]; then
+        local ancestor="$dst"
+        while [ "$ancestor" != "." ] && [ "$ancestor" != "/" ]; do
+            if [ -L "$ancestor" ]; then
+                echo "SKIP: $dst — symbolic link in destination, merge manually"
+                skipped=$((skipped + 1))
+                return
+            fi
+            ancestor="$(dirname "$ancestor")"
+        done
+    fi
     if [ -e "$dst" ]; then
         echo "SKIP: $dst — already exists, merge manually"
         skipped=$((skipped + 1))

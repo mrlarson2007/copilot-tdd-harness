@@ -18,7 +18,11 @@ $ErrorActionPreference = "Stop"
 $scriptDir  = Split-Path -Parent $MyInvocation.MyCommand.Path
 $harnessDir = (Resolve-Path (Join-Path $scriptDir "..")).Path
 $packageDir = Join-Path $harnessDir ".github"
-$targetDir  = (Resolve-Path $TargetDir).Path
+if ($Agent -eq "copilot") {
+    $targetDir = (Resolve-Path $TargetDir).Path
+} else {
+    $targetDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($TargetDir)
+}
 
 $installed = 0
 $skipped   = 0
@@ -40,6 +44,18 @@ $obsoleteFiles = @(
 
 function Install-File {
     param([string]$Src, [string]$Dst, [string]$Content)
+    if ($Agent -ne "copilot") {
+        $ancestor = $Dst
+        while ($ancestor) {
+            $item = Get-Item -LiteralPath $ancestor -Force -ErrorAction SilentlyContinue
+            if ($item -and ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+                Write-Host "SKIP: $Dst — symbolic link in destination, merge manually"
+                $script:skipped++
+                return
+            }
+            $ancestor = Split-Path -Parent $ancestor
+        }
+    }
     if (Test-Path $Dst) {
         Write-Host "SKIP: $Dst — already exists, merge manually"
         $script:skipped++
