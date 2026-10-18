@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Opt-in Codex CLI functionality and clarification checks (not verified TDD phase fidelity).
+
+prompts:
+  - file://./prompt.txt
+
+providers:
+  - id: file://./benchmark-provider.js
+    label: codex-cli-benchmark
+
+defaultTest:
+  threshold: 1
+  vars:
+    fixtureId: calculator-cli-go
+    baselineId: clean
+    runMode: codex-exec
+    fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
+    scenarioModulePath: ../fixtures/scenarios/codex-scenario.js
+    artifactOutputDir: ./results/codex-run-artifacts
+    # Optional model: set vars.model here, or EVAL_MODEL in the environment.
+  assert:
+    - type: javascript
+      metric: infrastructure
+      value: |
+        const s = typeof output === 'string' ? JSON.parse(output) : output;
+        const pass = s?.runtime === 'codex' && s?.infrastructure?.ok === true;
+        return { pass, score: pass ? 1 : 0, reason: pass ? 'Infrastructure completed' : `Infrastructure failure: ${s?.infrastructure?.error || 'invalid result'}` };
+    - type: javascript
+      metric: behavior
+      value: |
+        const s = typeof output === 'string' ? JSON.parse(output) : output;
+        if (s?.runtime !== 'codex' || s?.infrastructure?.ok !== true) return { pass: false, score: 0, reason: 'Infrastructure failure; behavior not evaluated' };
+        const pass = s?.behavior?.passed === true;
+        return { pass, score: pass ? 1 : 0, reason: pass ? 'Externally checked behavior passed' : 'Behavior failed external functionality or clarification checks' };
+
+tests:
+  - description: Codex calculator-cli-go subtract functionality
+    vars:
+      scenarioId: feature-add-subtract-command
+      scenarioFamily: feature
+      taskPrompt: Use $tdd-workflow to add a subtract subcommand to the calc CLI using TDD. Support signed integer operands.
+  - description: Codex calculator-cli-go clarification before changes
+    vars:
+      scenarioId: clarify-arithmetic-operation
+      scenarioFamily: clarification
+      taskPrompt: Use $tdd-workflow. Add another arithmetic subcommand to the calc CLI, but ask which operation to implement before making any changes. Stop after asking; do not implement or commit anything.
+
+outputPath:
+  - results/promptfoo-codex-benchmark.json
