@@ -39,7 +39,7 @@ $obsoleteFiles = @(
 )
 
 function Install-File {
-    param([string]$Src, [string]$Dst)
+    param([string]$Src, [string]$Dst, [string]$Content)
     if (Test-Path $Dst) {
         Write-Host "SKIP: $Dst — already exists, merge manually"
         $script:skipped++
@@ -48,7 +48,11 @@ function Install-File {
         if (-not (Test-Path $dstDir)) {
             New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
         }
-        Copy-Item -Path $Src -Destination $Dst
+        if ($Src -eq "-") {
+            [System.IO.File]::WriteAllText($Dst, $Content.Replace("`r`n", "`n") + "`n")
+        } else {
+            Copy-Item -Path $Src -Destination $Dst
+        }
         Write-Host "INSTALL: $Dst"
         $script:installed++
     }
@@ -80,6 +84,23 @@ Get-ChildItem -Path $resourceRoots -Recurse -File |
         $dst = Join-Path $targetDir $relPath
         Install-File -Src $_.FullName -Dst $dst
     }
+
+if ($Agent -ne "copilot") {
+    Get-ChildItem -Path (Join-Path $packageDir "skills") -Directory | ForEach-Object {
+        $name = $_.Name
+        $wrapper = @"
+---
+name: ${name}
+description: Load canonical ${name} guidance for the opt-in TDD harness.
+---
+
+Read and follow .github/skills/${name}/SKILL.md from the repository root.
+Resolve its asset, template, and contract paths from the repository root, not this wrapper.
+The canonical .github/skills guidance is authoritative; do not duplicate phase policy here.
+"@
+        Install-File -Src "-" -Dst (Join-Path $targetDir ".agents/skills/${name}/SKILL.md") -Content $wrapper
+    }
+}
 
 foreach ($obsoleteFile in $obsoleteFiles) {
     Report-ObsoleteFile -RelativePath $obsoleteFile

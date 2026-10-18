@@ -53,3 +53,23 @@ test('WhenCodexIsSelected_ShouldInstallOnlyCanonicalTddResources', t => {
     assert.equal(fs.existsSync(path.join(target, '.github/instructions/tdd-patterns.instructions.md')), false);
   }
 });
+
+test('WhenCodexIsSelected_ShouldExposeThinNamedWrappersForEveryCanonicalSkill', t => {
+  const wrappers = [];
+  for (const installer of installers) {
+    const target = fixture(t);
+    const result = run(installer, target, installer.select('codex'));
+    assert.equal(result.status, 0, result.stderr);
+    const content = {};
+    for (const name of fs.readdirSync(path.join(root, '.github/skills'))) {
+      const wrapper = fs.readFileSync(path.join(target, '.agents/skills', name, 'SKILL.md'), 'utf8');
+      assert.match(wrapper, new RegExp(`^---\\nname: ${name}\\ndescription: .+\\n---\\n`));
+      assert.ok(wrapper.includes(`.github/skills/${name}/SKILL.md`));
+      assert.match(wrapper, /repository root/);
+      assert.ok(wrapper.length < 700, 'wrapper should load policy, not duplicate it');
+      content[name] = wrapper;
+    }
+    wrappers.push(content);
+  }
+  assert.deepEqual(wrappers[0], wrappers[1], 'both installers generate identical wrappers');
+});

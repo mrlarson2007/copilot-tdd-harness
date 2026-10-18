@@ -71,7 +71,11 @@ install_file() {
         skipped=$((skipped + 1))
     else
         mkdir -p "$(dirname "$dst")"
-        cp "$src" "$dst"
+        if [ "$src" = "-" ]; then
+            printf '%s\n' "$3" > "$dst"
+        else
+            cp "$src" "$dst"
+        fi
         echo "INSTALL: $dst"
         installed=$((installed + 1))
     fi
@@ -98,6 +102,21 @@ while IFS= read -r -d '' src_file; do
 done < <(find "${resource_roots[@]}" -type f \
     ! -path "${PACKAGE_DIR}/instructions/tdd-patterns.instructions.md" \
     -print0)
+
+if [ "$agent" != copilot ]; then
+    for skill_file in "${PACKAGE_DIR}"/skills/*/SKILL.md; do
+        name="$(basename "$(dirname "$skill_file")")"
+        wrapper="---
+name: ${name}
+description: Load canonical ${name} guidance for the opt-in TDD harness.
+---
+
+Read and follow .github/skills/${name}/SKILL.md from the repository root.
+Resolve its asset, template, and contract paths from the repository root, not this wrapper.
+The canonical .github/skills guidance is authoritative; do not duplicate phase policy here."
+        install_file - "${TARGET_DIR}/.agents/skills/${name}/SKILL.md" "$wrapper"
+    done
+fi
 
 for rel in "${obsolete_files[@]}"; do
     report_obsolete_file "$rel"
