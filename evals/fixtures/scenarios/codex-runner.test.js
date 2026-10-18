@@ -149,3 +149,21 @@ test('WhenRunTimesOutAfterEvents_ShouldRetainParsedPartialEvidence', async () =>
   assert.deepEqual(result.events, [event]);
   assert.deepEqual(result.agentMessages, ['Still working']);
 });
+
+test('WhenStderrContainsFragmentedUnicode_ShouldDecodeWithoutExceedingByteLimit', async () => {
+  const { runCodex } = require('./codex-runner');
+  for (const limited of [false, true]) {
+    const result = await runCodex('/workspace', 'task', {
+      maxOutputBytes: limited ? 10 : 1024,
+      spawn: () => mockProcess((child) => {
+        const bytes = Buffer.from('✓'.repeat(20));
+        for (const byte of bytes) child.stderr.emit('data', Buffer.from([byte]));
+        child.stdout.emit('data', Buffer.from('{"type":"turn.completed"}\n'));
+        child.emit('close', 0);
+      }),
+    });
+    assert.equal(result.ok, !limited);
+    if (limited) assert.ok(Buffer.byteLength(result.stdout + result.stderr) <= 10);
+    else assert.equal(result.stderr, '✓'.repeat(20));
+  }
+});

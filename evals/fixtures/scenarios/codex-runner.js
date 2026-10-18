@@ -11,6 +11,7 @@ function runCodex(workspaceDir, prompt, options = {}) {
     let stderr = '';
     const events = [];
     const decoder = new StringDecoder('utf8');
+    const stderrDecoder = new StringDecoder('utf8');
     let pending = '';
     let error = null;
     let settled = false;
@@ -75,7 +76,7 @@ function runCodex(workspaceDir, prompt, options = {}) {
         const lines = pending.split('\n');
         pending = lines.pop();
         for (const line of lines) parseLine(line);
-      } else stderr += bounded.toString();
+      } else stderr += stderrDecoder.write(bounded);
       if (bytes.length > remaining) stop('Codex output limit exceeded');
     };
     try {
@@ -94,6 +95,7 @@ function runCodex(workspaceDir, prompt, options = {}) {
         if (settled) return;
         const tail = decoder.end();
         stdout += tail;
+        stderr += stderrDecoder.end();
         parseLine(pending + tail);
         finish(code);
       });
