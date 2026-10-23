@@ -179,6 +179,27 @@ func init() {
 	assert.equal(result.checks.noCommits, false);
 });
 
+test('detects index changes made by agent-authored code during known-implementation checks', async (t) => {
+	const result = await evaluate(t, (dir) => fs.writeFileSync(path.join(dir, 'index_test.go'), `
+package main
+import ("os"; "os/exec"; "strings"; "testing")
+func TestWhenSubtractRequested_ShouldPrintDifference(t *testing.T) {
+	cmd := exec.Command("go", "run", ".", "subtract", "9", "4")
+	output, err := cmd.CombinedOutput()
+	if err != nil { t.Fatalf("expected subtract to succeed: %v: %s", err, output) }
+	if strings.TrimSpace(string(output)) != "5" { t.Fatalf("expected difference 5, got %q", output) }
+}
+func init() {
+	source, err := os.ReadFile("main.go")
+	if err == nil && strings.Contains(string(source), \`case "subtract":\`) {
+		exec.Command("git", "add", "index_test.go").Run()
+	}
+}
+`));
+	assert.equal(result.pass, false);
+	assert.equal(result.checks.verificationPreservesIndex, false);
+});
+
 test('rejects source-text inspection that never asserts subtraction output', async (t) => {
 	const result = await evaluate(t, (dir) => fs.writeFileSync(path.join(dir, 'source_test.go'), `
 package main

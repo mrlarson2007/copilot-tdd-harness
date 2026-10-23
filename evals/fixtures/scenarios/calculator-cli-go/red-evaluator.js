@@ -130,12 +130,21 @@ function testFileAdditionIsValid(name, before, after) {
 			.equals(Buffer.from(before.content, 'base64'));
 }
 
+function checkIndexPreserved(dir, expected, checks) {
+	const actual = gitEvidence(dir);
+	checks.verificationPreservesIndex = checks.verificationPreservesIndex !== false
+		&& succeeded(actual.staged)
+		&& isDeepStrictEqual(expected.stagedFiles, actual.stagedFiles);
+	return actual;
+}
+
 function captureVerificationState(dir, baseline, red, checks) {
 	red.afterVerification = { files: snapshot(dir), git: gitEvidence(dir) };
 	checks.noCommits = unchangedGit(baseline.git, red.git)
 		&& unchangedGit(baseline.git, red.afterVerification.git);
 	checks.verificationPreservesWorkspace = isDeepStrictEqual(red.files, red.afterVerification.files);
-	checks.verificationPreservesIndex = isDeepStrictEqual(red.git.stagedFiles, red.afterVerification.git.stagedFiles);
+	checks.verificationPreservesIndex = checks.verificationPreservesIndex !== false
+		&& isDeepStrictEqual(red.git.stagedFiles, red.afterVerification.git.stagedFiles);
 }
 
 async function evaluateRed(dir, runAgent) {
@@ -168,6 +177,7 @@ async function evaluateRed(dir, runAgent) {
 		list: listTests(dir),
 	};
 	const additions = listedTests(red.list).filter((name) => !existing.includes(name));
+	checkIndexPreserved(dir, red.git, checks);
 	checks.oneNewTest = succeeded(red.list) && additions.length === 1
 		&& existing.every((name) => listedTests(red.list).includes(name));
 	const changed = Object.keys({ ...baseline.files, ...red.files })
@@ -181,6 +191,7 @@ async function evaluateRed(dir, runAgent) {
 		testFileAdditionIsValid(name, baseline.files[name], red.files[name]))
 		&& stagedChangesValid;
 	red.existing = goTests(dir, pattern(existing));
+	checkIndexPreserved(dir, red.git, checks);
 	checks.existingTestsPass = succeeded(red.existing)
 		&& isDeepStrictEqual(names(red.existing, 'pass'), existing)
 		&& names(red.existing, 'skip').length === 0;
@@ -188,7 +199,9 @@ async function evaluateRed(dir, runAgent) {
 	if (!checks.oneNewTest) return { pass: false, checks, evidence, agent };
 
 	red.selected = goTests(dir, pattern(additions));
+	checkIndexPreserved(dir, red.git, checks);
 	red.suite = goTests(dir);
+	checkIndexPreserved(dir, red.git, checks);
 	const selectedOutput = events(red.selected).filter((event) => event.Test === additions[0]
 		&& event.Action === 'output').map((event) => event.Output || '').join('');
 	checks.expectedAssertionFailure = red.selected.exitCode === 1 && !red.selected.error
@@ -211,14 +224,20 @@ async function evaluateRed(dir, runAgent) {
 		try {
 			addSubtractImplementation(dir);
 			const expectedFiles = snapshot(dir);
+			const knownSelected = goTests(dir, pattern(additions));
+			checkIndexPreserved(dir, red.git, checks);
+			const knownSuite = goTests(dir);
+			checkIndexPreserved(dir, red.git, checks);
 			evidence.knownImplementation = {
 				production: fs.readFileSync(mainPath, 'utf8'),
-				selected: goTests(dir, pattern(additions)),
-				suite: goTests(dir),
+				selected: knownSelected,
+				suite: knownSuite,
 				files: snapshot(dir),
 				git: gitEvidence(dir),
 			};
 			const known = evidence.knownImplementation;
+			checks.verificationPreservesIndex = checks.verificationPreservesIndex
+				&& isDeepStrictEqual(red.git.stagedFiles, known.git.stagedFiles);
 			checks.noCommits = checks.noCommits && unchangedGit(baseline.git, known.git);
 			checks.verificationPreservesWorkspace = checks.verificationPreservesWorkspace
 				&& isDeepStrictEqual(expectedFiles, known.files);
@@ -237,6 +256,8 @@ async function evaluateRed(dir, runAgent) {
 					files: snapshot(dir),
 					git: gitEvidence(dir),
 				};
+				checks.verificationPreservesIndex = checks.verificationPreservesIndex
+					&& isDeepStrictEqual(red.git.stagedFiles, wrong.git.stagedFiles);
 				checks.sensitiveToWrongImplementation = wrongSource !== known.production
 					&& wrong.selected.exitCode === 1 && !wrong.selected.error && !wrong.selected.signal
 					&& isDeepStrictEqual(names(wrong.selected, 'fail'), additions)
