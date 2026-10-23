@@ -236,3 +236,79 @@ claimed as a passed evaluation.
 During implementation, the live TypeSafe docs hostname could not resolve.
 The public upstream skill, package README, and installed SDK declarations were
 used instead; the SDK request shapes are checked by the transport test.
+
+### Safe manual GitHub Actions setup
+
+`.github/workflows/jev-live-eval.yml` is an opt-in, **manual-only** live run.
+It never runs automatically for pull requests. Before enabling it:
+
+1. Review the workflow, collector, recorded-evidence provider/config, dependency
+   lockfile, and public calculator fixture on the default branch. Protect that
+   branch and require review for changes to this execution path.
+2. In **Settings → Environments**, create `jev-agent` and `jev-score`. On **both**
+   environments configure **required reviewers**, enable **Prevent self-review**,
+   and restrict deployment branches to **only the default branch**. Disable
+   protection-rule bypass where available. Verify these protections are supported
+   by your repository visibility/plan and actually active. An environment name
+   alone does **not** enforce approval or branch restrictions; if these settings
+   cannot be enforced, do not enable this workflow.
+3. Create a short-expiry **fine-grained personal access token** under your
+   personal account, selecting your personal account as resource owner and
+   **Public repositories (read-only)** access. Under **Account permissions** grant
+   **Copilot Requests** access, with no repository write permissions. The account
+   must have Copilot access. In **Settings → Secrets and variables → Actions**,
+   save it as repository secret `COPILOT_GITHUB_TOKEN`.
+4. Store your TypeSafe key as an Actions secret named `TYPESAFE_API_KEY`. To use
+   another secret name, set repository variable `TYPESAFE_SECRET_NAME` to that
+   **name**, not the key. Keep keys out of chat, workflow inputs, command lines,
+   checked-in files, and artifacts. Do not provide either credential here.
+5. **Only after configuring and checking both environments**, set repository
+   variable `JEV_LIVE_ENABLED` to exactly `true`. Missing or other values disable
+   both jobs. Remove it or set it to `false` to disable future runs.
+
+In **Actions → Jev Live Evaluation → Run workflow**, select the default branch
+and enter its reviewed current **40-character hexadecimal commit SHA** as
+`reviewed_sha`. It must exactly equal the dispatch revision (`github.sha`);
+arbitrary checkout refs and non-default-branch dispatches are not accepted. Both
+jobs check out that immutable SHA, not a moving branch. If the branch advances
+before dispatch, review the new revision before trying again.
+
+There are **two approval boundaries**: approve `jev-agent` to collect evidence,
+then review that job and its `jev-evidence` artifact before approving `jev-score`.
+These boundaries depend on the environment settings above. Do not approve
+scoring after suspicious collection behavior or evidence; scoring requires a
+successful collection job and a separate fresh ephemeral Ubuntu runner.
+
+Collection uses Node 22, the fixture's Go version, and pinned Copilot CLI
+`@github/copilot@1.0.103` installed outside the checkout. It does not install
+Promptfoo/TypeSafe tooling. Only the collection step receives the Copilot token;
+**generated agent code can still access that token**. Minimal scope and short
+expiry limit risk but do not sandbox generated code. The TypeSafe key is never
+supplied to collection. Job environments are not themselves process sandboxes.
+The workflow token has only `contents: read`, checkout does not persist its
+credentials, and the workflow performs no release, push, or repository write.
+
+The collector writes bounded, redacted JSON outside the checkout. Only the fixed
+`evidence.json` file is uploaded as `jev-evidence` (including after collection
+failure when the file exists); workspaces, raw transcripts, and home directories
+are not uploaded. Artifacts expire after one day. Review/download permissions
+follow repository Actions access controls; redaction is not a substitute for
+using **only non-sensitive public fixture evidence**.
+
+Scoring installs locked tooling before receiving its secret, then reads the
+downloaded evidence as validated, bounded JSON data, not executable generated
+code. It does not install Go/Copilot or run the generated agent tests. Only the
+Jev scoring step receives the selected TypeSafe key and
+`TDD_JEV_ALLOW_PUBLIC_FIXTURE_UPLOAD=1`; this explicitly permits sending the
+public fixture evidence to TypeSafe. Copilot credentials are not supplied to
+scoring. Promptfoo caching is disabled.
+
+The `jev-scores` artifact contains only fixed recorded-evaluation JSON report
+paths, retained for one day. The workflow independently requires every report
+row's `response.output.status` to be `complete`, even if Promptfoo displays an
+assertion-free green row. Missing/unavailable/incomplete results fail; completion
+is **not** a favorable Jev judgment, and no semantic-score threshold is imposed.
+Collection has a 45-minute limit and scoring a 5-minute limit. Concurrency permits
+only one active live evaluation, with no automatic cancellation/retry (GitHub
+may replace an older pending run when another is queued). No live run or
+credential access is needed for the deterministic local tests.
