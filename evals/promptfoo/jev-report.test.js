@@ -30,3 +30,30 @@ test('WhenRecordedResultsAreMissing_ShouldWriteIncompleteDiagnosticAndExitSucces
 	assert.doesNotMatch(report, /\b\d+(?:\.\d+)?\s*(?:%|\/\s*\d+)|\bscore\s*:\s*\d/i);
 	assert.equal(fs.existsSync(input), false, 'Reporting must not create recorded results');
 });
+
+test('WhenRecordedResultsContainMalformedJson_ShouldWriteIncompleteDiagnosticWithoutDisclosingInput', (t) => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
+	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const input = path.join(dir, 'recorded-results.json');
+	const output = path.join(dir, 'report.md');
+	const rawInput = '{"privateNote":"PRIVATE_INPUT_SENTINEL", malformed';
+	fs.writeFileSync(input, rawInput, 'utf8');
+
+	const result = spawnSync(process.execPath, [
+		path.join(__dirname, 'jev-report.js'), input, output,
+	], { encoding: 'utf8' });
+
+	assert.equal(fs.existsSync(output), true, 'Malformed recorded results should produce a Markdown diagnostic');
+	assert.equal(result.error, undefined);
+	assert.equal(result.status, 0, 'Diagnostic reporting must not replace the completion gate');
+	const report = fs.readFileSync(output, 'utf8');
+	assert.match(report, /^# Jev Recorded Results Report\n/m);
+	assert.match(report, /Status: incomplete/i);
+	assert.match(report, /recorded-results JSON (?:is )?(?:malformed|invalid)/i);
+	assert.match(report, /scores: unavailable/i);
+	assert.match(report, /no scores (?:were )?(?:invented|fabricated)/i);
+	assert.match(report, /existing completion gate remains authoritative/i);
+	assert.doesNotMatch(report, /\b\d+(?:\.\d+)?\s*(?:%|\/\s*\d+)|\bscore\s*:\s*\d/i);
+	assert.doesNotMatch(report + result.stdout + result.stderr, /PRIVATE_INPUT_SENTINEL|privateNote/);
+	assert.equal(fs.readFileSync(input, 'utf8'), rawInput, 'Reporting must not change recorded results');
+});
