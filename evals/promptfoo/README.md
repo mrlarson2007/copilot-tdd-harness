@@ -242,9 +242,10 @@ used instead; the SDK request shapes are checked by the transport test.
 `.github/workflows/jev-live-eval.yml` is an opt-in, **manual-only** live run.
 It never runs automatically for pull requests. Before enabling it:
 
-1. Review the workflow, collector, recorded-evidence provider/config, dependency
-   lockfile, and public calculator fixture on the default branch. Protect that
-   branch and require review for changes to this execution path.
+1. Review the workflow, collector, recorded-evidence provider/config, public HTML
+   generator (`jev-pages.js`), dependency lockfile, and public calculator fixture
+   on the default branch. Protect that branch and require review for changes to
+   this execution path.
 2. In **Settings → Environments**, create `jev-agent` and `jev-score`. On **both**
    environments configure **required reviewers**, enable **Prevent self-review**,
    and restrict deployment branches to **only the default branch**. Disable
