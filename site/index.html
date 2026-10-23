@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Copilot TDD Harness · Eval Report Prototypes</title>
+  <link rel="stylesheet" href="assets/base.css">
+  <style>
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 24px; }
+    .cards a { text-decoration: none; color: inherit; }
+    .cards .panel:hover { border-color: var(--accent); }
+    .cards h2 { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Copilot TDD Harness · Eval Report</h1>
+    <p class="muted">
+      Three prototype ways to present our eval results to visitors. All three read the same
+      data file (<code>data/eval-report.js</code>) and compare models with the TDD harness
+      versus no skills at all.
+    </p>
+    <div class="cards">
+      <a href="prototype-a-scorecard/index.html"><section class="panel">
+        <h2>A · Scorecard</h2>
+        <p>A single leaderboard: one overall score per model with and without the harness, plus the lift. Expand a row for per-metric detail.</p>
+        <p class="muted">Best for: a quick, scannable answer on a landing page.</p>
+      </section></a>
+      <a href="prototype-b-dashboard/index.html"><section class="panel">
+        <h2>B · Dashboard</h2>
+        <p>Interactive filters by scenario and metric, a grouped bar chart, a model × metric heatmap, and a per-scenario table.</p>
+        <p class="muted">Best for: technical visitors who want to dig into the data.</p>
+      </section></a>
+      <a href="prototype-c-story/index.html"><section class="panel">
+        <h2>C · Story</h2>
+        <p>A narrative before/after page: what agents do without skills, the most common failure modes, gains per model, and the cost.</p>
+        <p class="muted">Best for: explaining why the harness exists to new visitors.</p>
+      </section></a>
+    </div>
+  </main>
+  <script src="data/eval-report.js"></script>
+  <script src="assets/report.js"></script>
+  <script>
+    const banner = window.Report.sampleBanner();
+    if (banner) document.querySelector('main').prepend(banner);
+  </script>
+</body>
+</html>

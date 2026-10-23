@@ -7,6 +7,39 @@ const { spawn, execFileSync } = require('child_process');
 // This file lives at evals/fixtures/scenarios/agent-runner.js — 3 levels up is the repo root.
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 
+const EVAL_CONDITIONS = ['harness', 'baseline'];
+
+/**
+ * Reads the eval matrix cell for this process from the environment.
+ *   EVAL_MODEL     - optional model id passed to `copilot --model`.
+ *   EVAL_CONDITION - `harness` (default) installs the agent + skills and runs
+ *                    `copilot --agent=<name>`; `baseline` installs nothing and
+ *                    runs the default Copilot agent with the same prompt.
+ */
+function getEvalRunConfig(env = process.env) {
+  const model = (env.EVAL_MODEL || '').trim() || null;
+  const condition = (env.EVAL_CONDITION || 'harness').trim().toLowerCase();
+  if (!EVAL_CONDITIONS.includes(condition)) {
+    throw new Error(`EVAL_CONDITION must be one of ${EVAL_CONDITIONS.join(', ')}; got "${env.EVAL_CONDITION}"`);
+  }
+  return { model, condition };
+}
+
+function buildCopilotArgs({ agentName, prompt, runConfig = getEvalRunConfig() }) {
+  const args = [];
+  if (runConfig.condition === 'harness' && agentName !== false) {
+    args.push(`--agent=${agentName}`);
+  }
+  if (runConfig.model) {
+    args.push('--model', runConfig.model);
+  }
+  if (prompt !== undefined) {
+    args.push('--prompt', prompt);
+  }
+  args.push('--allow-all-tools');
+  return args;
+}
+
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
@@ -25,6 +58,10 @@ function copyDir(src, dest) {
  * disposable workspace so `copilot --agent=tdd` can resolve them.
  */
 function setupWorkspaceAgentFiles(workspaceDir) {
+  if (getEvalRunConfig().condition === 'baseline') {
+    return;
+  }
+
   const agentSrc = path.join(REPO_ROOT, '.github', 'agents', 'tdd.agent.md');
   const agentDest = path.join(workspaceDir, '.github', 'agents', 'tdd.agent.md');
   fs.mkdirSync(path.dirname(agentDest), { recursive: true });
@@ -84,11 +121,10 @@ function runCopilotAgent(workspaceDir, prompt, options = {}) {
   const questionDetector = createQuestionDetector();
 
   return new Promise((resolve) => {
-    const proc = spawn('copilot', [
-      ...(options.agentName === false ? [] : [`--agent=${agentName}`]),
-      '--prompt', prompt,
-      '--allow-all-tools',
-    ], {
+    const proc = spawn('copilot', buildCopilotArgs({
+      agentName: options.agentName === false ? false : agentName,
+      prompt,
+    }), {
       cwd: workspaceDir,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: processGroup,
@@ -194,7 +230,7 @@ function runCopilotAgentInteractive(workspaceDir, initialPrompt, responses = [],
   const agentName = options.agentName || 'tdd';
 
   return new Promise((resolve) => {
-    const proc = spawn('copilot', [`--agent=${agentName}`, '--allow-all-tools'], {
+    const proc = spawn('copilot', buildCopilotArgs({ agentName }), {
       cwd: workspaceDir,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -241,4 +277,10 @@ function runCopilotAgentInteractive(workspaceDir, initialPrompt, responses = [],
   });
 }
 
-module.exports = { setupWorkspaceAgentFiles, runCopilotAgent, runCopilotAgentInteractive };
+module.exports = {
+  buildCopilotArgs,
+  getEvalRunConfig,
+  setupWorkspaceAgentFiles,
+  runCopilotAgent,
+  runCopilotAgentInteractive,
+};
