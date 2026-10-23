@@ -148,7 +148,7 @@ async function runExperiment(input, dependencies = {}) {
 	}
 	const baselineHead = baseline.state.git.head.output.trim();
 	let before = baseline.state;
-	let status = 'complete';
+	let status = dependencies.collectOnly ? 'collected' : 'complete';
 	for (const phase of phases) {
 		const prompt = `${scenario}
 Read and execute .github/skills/tdd-${phase}/SKILL.md, its available assets,
@@ -186,8 +186,12 @@ Previous phase result: ${JSON.stringify(records.at(-1)?.evidence.phaseResult || 
 			})),
 		};
 		// Raw agent output is kept locally, not included in the Jev state.
-		const judgment = await judge({ phase, evidence });
-		records.push({ phase, agent, evidence, judgment });
+		const judgment = dependencies.collectOnly
+			? { phase, status: 'pending-scoring', response: null }
+			: await judge({ phase, evidence });
+		const record = { phase, agent, evidence, judgment };
+		records.push(record);
+		if (dependencies.onRecord) await dependencies.onRecord(record);
 		before = afterVerification;
 		if (!agent.ok || agent.exitCode !== 0) {
 			status = 'agent-failed';
@@ -197,7 +201,7 @@ Previous phase result: ${JSON.stringify(records.at(-1)?.evidence.phaseResult || 
 			status = 'phase-failed';
 			break;
 		}
-		if (judgment.status !== 'scored') {
+		if (!dependencies.collectOnly && judgment.status !== 'scored') {
 			status = 'judge-unavailable';
 			break;
 		}

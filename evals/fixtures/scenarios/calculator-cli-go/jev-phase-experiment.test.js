@@ -120,3 +120,29 @@ test('a failing GREEN verification never advances to COMMIT or REFACTOR despite 
 	assert.equal(result.summary.phases.commit.status, 'not-run');
 	assert.equal(result.artifacts.phases[1].evidence.testResults[0].exitCode, 1);
 });
+
+test('collection-only mode checkpoints phase evidence without calling Jev or needing its key', async (t) => {
+	const { dir, git } = workspace(t);
+	const captured = [];
+	const result = await runExperiment({ workspaceDir: dir, fixtureId: 'calculator-cli-go' }, {
+		collectOnly: true,
+		onRecord: (record) => captured.push(record),
+		judge: async () => { throw new Error('Collection must never invoke the scorer'); },
+		runAgent: async (_dir, _prompt, options) => {
+			const phase = options.progressLabel.replace('jev-', '');
+			if (phase === 'red') appendSubtractTest(dir);
+			if (phase === 'green') addSubtractImplementation(dir);
+			if (phase === 'commit') {
+				git('add', 'main.go', 'main_test.go');
+				git('commit', '--quiet', '-m', 'Add subtract command');
+			}
+			return { ok: true, exitCode: 0, output: `<phase_result>${JSON.stringify({
+				contract: phase === 'refactor' ? 'cycle_result' : `${phase}_result`, status: 'ok',
+			})}</phase_result>` };
+		},
+	});
+	assert.equal(result.summary.status, 'collected');
+	assert.equal(captured.length, 4);
+	assert.ok(captured.every((record) => record.judgment.status === 'pending-scoring'));
+	assert.equal(captured[0].evidence.testResults[0].exitCode, 1);
+});
