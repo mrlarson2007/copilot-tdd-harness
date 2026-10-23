@@ -289,3 +289,36 @@ test('WhenSourceContainsSensitiveFields_ShouldPublishOnlySafeProjectionWithoutEv
 		fs.rmSync(colliding.input);
 	}
 });
+
+test('WhenRunMetadataIsHostileOrUnavailable_ShouldOmitUnsafeLinksAndGenerateTimestampAtExecution', (t) => {
+	const files = workspace(t);
+	writeRows(files, [execution()]);
+	for (const server of ['https://PRIVATE_SERVER.invalid', 'javascript:alert(1)', 'http://github.com',
+		'https://github.com.PRIVATE_SERVER.invalid', 'https://github.com@PRIVATE_SERVER.invalid',
+		'https://github.com/PRIVATE_PATH', 'https://github.com?PRIVATE_QUERY',
+		'https://github.com#PRIVATE_FRAGMENT', undefined]) {
+		const start = Date.now();
+		const result = run(files, { ...environment, GITHUB_SERVER_URL: server, EVAL_TIMESTAMP: undefined });
+		assert.equal(result.status, 0, result.stderr);
+		const end = Date.now();
+		for (const name of ['index.html', 'jev.html', 'promptfoo.html']) {
+			const html = fs.readFileSync(path.join(files.output, name), 'utf8');
+			assert.doesNotMatch(html, /PRIVATE_|javascript:|href="https?:/);
+			assert.match(html, /Source commit unavailable/);
+			assert.match(html, /Source run unavailable/);
+			const timestamp = html.match(/Timestamp: ([^<]+)</)?.[1];
+			assert.ok(Date.parse(timestamp) >= start && Date.parse(timestamp) <= end);
+		}
+	}
+	for (const repository of ['../..', 'example/..', './repo', '<script>/PRIVATE_REPOSITORY', undefined]) {
+		assert.equal(run(files, { ...environment, GITHUB_REPOSITORY: repository,
+			GITHUB_RUN_ID: 'PRIVATE_RUN', GITHUB_RUN_ATTEMPT: 'PRIVATE_ATTEMPT',
+			EVAL_TIMESTAMP: 'PRIVATE_TIMESTAMP' }).status, 0);
+		for (const name of ['index.html', 'jev.html', 'promptfoo.html']) {
+			const html = fs.readFileSync(path.join(files.output, name), 'utf8');
+			assert.match(html, /Repository: unavailable/);
+			assert.match(html, /Run: unavailable · Attempt: unavailable · Timestamp: unavailable/);
+			assert.doesNotMatch(html, /PRIVATE_|<script|href="https?:/);
+		}
+	}
+});

@@ -12,6 +12,7 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => (
 
 function metadata(env) {
 	const repository = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(env.GITHUB_REPOSITORY || '')
+		&& !env.GITHUB_REPOSITORY.split('/').some((segment) => segment === '.' || segment === '..')
 		? env.GITHUB_REPOSITORY : 'unavailable';
 	const run = /^\d+$/.test(env.GITHUB_RUN_ID || '') ? env.GITHUB_RUN_ID : 'unavailable';
 	const attempt = /^\d+$/.test(env.GITHUB_RUN_ATTEMPT || '') ? env.GITHUB_RUN_ATTEMPT : 'unavailable';
