@@ -62,6 +62,36 @@ test('accepts one useful uncommitted RED test using actual Go and Git evidence',
 	assert.match(result.evidence.red.git.diff.output, /subtract/);
 });
 
+test('accepts one useful RED test implemented as a Go subtest', async (t) => {
+	const result = await evaluate(t, (dir) => fs.appendFileSync(path.join(dir, 'main_test.go'), `
+func TestWhenSubtractRequested_ShouldPrintDifference(t *testing.T) {
+	t.Run("requested operands", func(t *testing.T) {
+		cmd := exec.Command("go", "run", ".", "subtract", "9", "4")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("expected subtract to succeed: %v: %s", err, output)
+		}
+		if strings.TrimSpace(string(output)) != "5" {
+			t.Fatalf("expected difference 5, got %q", output)
+		}
+	})
+}
+`));
+	assert.equal(result.pass, true, JSON.stringify(result.checks));
+});
+
+test('rejects skipped Go subtests', async (t) => {
+	const result = await evaluate(t, (dir) => fs.appendFileSync(path.join(dir, 'main_test.go'), `
+func TestWhenSubtractRequested_ShouldPrintDifference(t *testing.T) {
+	t.Run("requested operands", func(t *testing.T) {
+		t.Skip("unknown command: subtract")
+	})
+}
+`));
+	assert.equal(result.pass, false);
+	assert.equal(result.checks.expectedAssertionFailure, false);
+});
+
 test('rejects no new test despite an agent claiming RED success', async (t) => {
 	const result = await evaluate(t, () => {});
 	assert.equal(result.pass, false);
@@ -74,6 +104,13 @@ test('rejects a new test already passing on the baseline', async (t) => {
 	assert.equal(result.pass, false);
 	assert.equal(result.checks.expectedAssertionFailure, false);
 	assert.equal(result.evidence.red.selected.exitCode, 0);
+});
+
+test('rejects subtraction tests that do not use the requested operands', async (t) => {
+	const result = await evaluate(t, (dir) => fs.appendFileSync(path.join(dir, 'main_test.go'),
+		newTest.replace('"4"', '"9"').replace('!= "5"', '!= "0"')));
+	assert.equal(result.pass, false);
+	assert.equal(result.checks.usefulWithKnownImplementation, false);
 });
 
 test('rejects agent production edits', async (t) => {

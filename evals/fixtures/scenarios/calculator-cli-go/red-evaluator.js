@@ -62,9 +62,10 @@ function gitEvidence(dir, options = {}) {
 				continue;
 			}
 			const blob = git('cat-file', 'blob', match[2]);
+			const mode = Number.parseInt(match[1], 8);
 			stagedFiles[name] = succeeded(blob) ? {
-				mode: Number.parseInt(match[1], 8),
-				type: 'file',
+				mode,
+				type: (mode & 0o170000) === 0o100000 ? 'file' : 'symlink',
 				content: Buffer.from(blob.output).toString('base64'),
 			} : null;
 		}
@@ -96,8 +97,19 @@ function events(result) {
 	});
 }
 
-function names(result, action) {
-	return events(result).filter((event) => event.Action === action && event.Test).map((event) => event.Test).sort();
+function topLevelTestName(name, inventory) {
+	const match = inventory.filter((test) => name === test || name.startsWith(`${test}/`))
+		.sort((left, right) => right.length - left.length)[0];
+	return match || name;
+}
+
+function names(result, action, inventory) {
+	return [...new Set(events(result).filter((event) => event.Action === action && event.Test)
+		.map((event) => topLevelTestName(event.Test, inventory)))].sort();
+}
+
+function isTestOrSubtest(name, test) {
+	return name === test || (typeof name === 'string' && name.startsWith(`${test}/`));
 }
 
 function pattern(namesToRun) {
@@ -161,7 +173,7 @@ async function evaluateRed(dir, runAgent) {
 	const baseline = evidence.baseline;
 	const existing = listedTests(baseline.list);
 	checks.baselinePasses = succeeded(baseline.list) && succeeded(baseline.suite)
-		&& existing.length > 0 && isDeepStrictEqual(names(baseline.suite, 'pass'), existing);
+		&& existing.length > 0 && isDeepStrictEqual(names(baseline.suite, 'pass', existing), existing);
 	if (!checks.baselinePasses) return { pass: false, checks, evidence, agent: null };
 
 	let agent;
@@ -193,8 +205,8 @@ async function evaluateRed(dir, runAgent) {
 	red.existing = goTests(dir, pattern(existing));
 	checkIndexPreserved(dir, red.git, checks);
 	checks.existingTestsPass = succeeded(red.existing)
-		&& isDeepStrictEqual(names(red.existing, 'pass'), existing)
-		&& names(red.existing, 'skip').length === 0;
+		&& isDeepStrictEqual(names(red.existing, 'pass', existing), existing)
+		&& names(red.existing, 'skip', existing).length === 0;
 	captureVerificationState(dir, baseline, red, checks);
 	if (!checks.oneNewTest) return { pass: false, checks, evidence, agent };
 
@@ -202,18 +214,18 @@ async function evaluateRed(dir, runAgent) {
 	checkIndexPreserved(dir, red.git, checks);
 	red.suite = goTests(dir);
 	checkIndexPreserved(dir, red.git, checks);
-	const selectedOutput = events(red.selected).filter((event) => event.Test === additions[0]
+	const selectedOutput = events(red.selected).filter((event) => isTestOrSubtest(event.Test, additions[0])
 		&& event.Action === 'output').map((event) => event.Output || '').join('');
 	checks.expectedAssertionFailure = red.selected.exitCode === 1 && !red.selected.error
-		&& !red.selected.signal && isDeepStrictEqual(names(red.selected, 'fail'), additions)
-		&& names(red.selected, 'skip').length === 0
+		&& !red.selected.signal && isDeepStrictEqual(names(red.selected, 'fail', additions), additions)
+		&& names(red.selected, 'skip', additions).length === 0
 		&& /_test\.go:\d+:/.test(selectedOutput)
 		&& /unknown command: subtract/.test(selectedOutput)
 		&& !/panic:|test timed out|DATA RACE/.test(red.selected.output);
 	checks.onlyRequestedFailure = red.suite.exitCode === 1 && !red.suite.error && !red.suite.signal
-		&& isDeepStrictEqual(names(red.suite, 'fail'), additions)
-		&& isDeepStrictEqual(names(red.suite, 'pass'), existing)
-		&& isDeepStrictEqual(names(red.suite, 'run'), [...existing, ...additions].sort());
+		&& isDeepStrictEqual(names(red.suite, 'fail', [...existing, ...additions]), additions)
+		&& isDeepStrictEqual(names(red.suite, 'pass', [...existing, ...additions]), existing)
+		&& isDeepStrictEqual(names(red.suite, 'run', [...existing, ...additions]), [...existing, ...additions].sort());
 	captureVerificationState(dir, baseline, red, checks);
 	checks.sensitiveToWrongImplementation = false;
 
@@ -223,6 +235,15 @@ async function evaluateRed(dir, runAgent) {
 		const original = fs.readFileSync(mainPath);
 		try {
 			addSubtractImplementation(dir);
+			const generalImplementation = fs.readFileSync(mainPath, 'utf8');
+			const requestedImplementation = generalImplementation.replace(
+				'fmt.Println(left - right)',
+				'if left == 9 && right == 4 { fmt.Println(5) } else { fmt.Println("unexpected operands") }',
+			);
+			if (requestedImplementation === generalImplementation) {
+				throw new Error('Failed to constrain known subtract implementation to the requested operands');
+			}
+			fs.writeFileSync(mainPath, requestedImplementation);
 			const expectedFiles = snapshot(dir);
 			const knownSelected = goTests(dir, pattern(additions));
 			checkIndexPreserved(dir, red.git, checks);
@@ -242,12 +263,12 @@ async function evaluateRed(dir, runAgent) {
 			checks.verificationPreservesWorkspace = checks.verificationPreservesWorkspace
 				&& isDeepStrictEqual(expectedFiles, known.files);
 			checks.usefulWithKnownImplementation = succeeded(known.selected) && succeeded(known.suite)
-				&& isDeepStrictEqual(names(known.selected, 'pass'), additions)
-				&& isDeepStrictEqual(names(known.suite, 'pass'), [...existing, ...additions].sort())
+				&& isDeepStrictEqual(names(known.selected, 'pass', additions), additions)
+				&& isDeepStrictEqual(names(known.suite, 'pass', [...existing, ...additions]), [...existing, ...additions].sort())
 				&& Object.keys(red.files).filter((name) => name.endsWith('_test.go'))
 					.every((name) => isDeepStrictEqual(red.files[name], known.files[name]));
 			if (checks.usefulWithKnownImplementation && checks.verificationPreservesWorkspace && checks.noCommits) {
-				const wrongSource = known.production.replace('fmt.Println(left - right)', 'fmt.Println(left + right)');
+				const wrongSource = known.production.replace('fmt.Println(5)', 'fmt.Println(6)');
 				fs.writeFileSync(mainPath, wrongSource);
 				const expectedWrongFiles = snapshot(dir);
 				const wrong = evidence.wrongImplementation = {
@@ -260,8 +281,8 @@ async function evaluateRed(dir, runAgent) {
 					&& isDeepStrictEqual(red.git.stagedFiles, wrong.git.stagedFiles);
 				checks.sensitiveToWrongImplementation = wrongSource !== known.production
 					&& wrong.selected.exitCode === 1 && !wrong.selected.error && !wrong.selected.signal
-					&& isDeepStrictEqual(names(wrong.selected, 'fail'), additions)
-					&& names(wrong.selected, 'skip').length === 0
+					&& isDeepStrictEqual(names(wrong.selected, 'fail', additions), additions)
+					&& names(wrong.selected, 'skip', additions).length === 0
 					&& /_test\.go:\d+:/.test(wrong.selected.output)
 					&& !/panic:|test timed out|DATA RACE/.test(wrong.selected.output);
 				checks.noCommits = checks.noCommits && unchangedGit(baseline.git, wrong.git);
