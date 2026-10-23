@@ -69,9 +69,9 @@
         if (value === null) return 'transparent';
         if (mode === 'lift') {
           const a = Math.min(1, Math.abs(value) / 0.8);
-          return value >= 0 ? `rgba(63,185,80,${0.15 + a * 0.75})` : `rgba(248,81,73,${0.15 + a * 0.75})`;
+          return value >= 0 ? `rgba(63,185,80,${Math.min(0.5, 0.15 + a * 0.75)})` : `rgba(248,81,73,${Math.min(0.5, 0.15 + a * 0.75)})`;
         }
-        return `rgba(88,166,255,${0.1 + value * 0.8})`;
+        return `rgba(88,166,255,${Math.min(0.5, 0.1 + value * 0.8)})`;
       }
 
       function heatmap() {
@@ -112,14 +112,15 @@
       }
 
       const select = (label, key, options) => h('label', {}, label,
-        h('select', { onchange: (e) => { state[key] = e.target.value; render(); } },
+        h('select', { 'data-control': key, onchange: (e) => { state[key] = e.target.value; render(); } },
           options.map(([v, l]) => h('option', { value: v, selected: state[key] === v }, l))));
 
       const heatToggle = () => h('div', { class: 'toggle', role: 'group', 'aria-label': 'Heatmap values' },
         [['lift', 'Lift'], ['harness', 'With harness'], ['baseline', 'No skills']].map(([v, l]) =>
-          h('button', { 'aria-pressed': state.heat === v, onclick: () => { state.heat = v; render(); } }, l)));
+          h('button', { 'data-control': `heat-${v}`, 'aria-pressed': state.heat === v, onclick: () => { state.heat = v; render(); } }, l)));
 
       function render() {
+        const focusedControl = document.activeElement?.getAttribute('data-control');
         app.replaceChildren(
           R.protoNav('B'),
           R.sampleBanner(),
@@ -144,6 +145,7 @@
             h('p', { class: 'muted' }, state.metric ? `Metric: ${data.metrics.find((m) => m.id === state.metric).label}` : 'Overall score per scenario'),
             scenarioTable()),
           R.methodology());
+        if (focusedControl) app.querySelector(`[data-control="${focusedControl}"]`)?.focus();
       }
 
       render();

@@ -21,11 +21,13 @@
     .chip.commit { background: rgba(88,166,255,.2); border-color: var(--accent); }
     .chip.bad { background: rgba(210,153,34,.15); border-color: var(--warn); }
     .arrow { color: var(--muted); }
-    .fm-row { display: grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: center; margin: 10px 0; font-size: 0.9rem; }
+    .fm-row { display: grid; grid-template-columns: minmax(120px, 260px) minmax(0, 1fr); gap: 12px; align-items: center; margin: 10px 0; font-size: 0.9rem; }
     .fm-bars { display: grid; gap: 3px; }
+    .fm-line { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 8px; align-items: center; }
     .fm-bar { height: 10px; border-radius: 3px; }
     .fm-bar.baseline { background: var(--baseline); }
     .fm-bar.harness { background: var(--harness); }
+    .fm-rate { color: var(--muted); font-size: 0.75rem; white-space: nowrap; }
     .dumbbell { display: grid; grid-template-columns: 100px 1fr 90px; gap: 12px; align-items: center; margin: 12px 0; }
     .track { position: relative; height: 20px; }
     .track .axis { position: absolute; top: 9px; left: 0; right: 0; height: 2px; background: var(--border); }
@@ -60,6 +62,9 @@
       function failureModes() {
         const base = failureCounts({ condition: 'baseline' });
         const harn = failureCounts({ condition: 'harness' });
+        if (!base.trials || !harn.trials) {
+          return h('p', { class: 'muted' }, 'Failure-rate comparisons are unavailable until both conditions have trials.');
+        }
         const per100 = (c, t) => (t ? (c / t) * 100 : 0);
         const max = Math.max(1, ...data.failureModes.flatMap((f) => [
           per100(base.counts[f.id], base.trials),
@@ -70,9 +75,13 @@
           .sort((x, y) => y.b - x.b)
           .map(({ f, b, a }) => h('div', { class: 'fm-row' },
             h('span', {}, f.label),
-            h('div', { class: 'fm-bars', title: `No skills: ${b.toFixed(1)} per 100 runs · With harness: ${a.toFixed(1)} per 100 runs` },
-              h('div', { class: 'fm-bar baseline', style: { width: `${(b / max) * 100}%` } }),
-              h('div', { class: 'fm-bar harness', style: { width: `${(a / max) * 100}%` } }))));
+            h('div', { class: 'fm-bars' },
+              h('div', { class: 'fm-line' },
+                h('div', { class: 'fm-bar baseline', style: { width: `${(b / max) * 100}%` } }),
+                h('span', { class: 'fm-rate' }, `No skills: ${b.toFixed(1)}`)),
+              h('div', { class: 'fm-line' },
+                h('div', { class: 'fm-bar harness', style: { width: `${(a / max) * 100}%` } }),
+                h('span', { class: 'fm-rate' }, `With harness: ${a.toFixed(1)}`)))));
       }
 
       function dumbbells() {

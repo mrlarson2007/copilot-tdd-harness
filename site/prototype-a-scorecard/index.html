@@ -75,7 +75,12 @@
       function renderTable() {
         const sorted = [...rows].sort(byDesc(sortKey));
         const sortBtn = (key, label) => h('th', { class: 'num' },
-          h('button', { onclick: () => { sortKey = key; table.replaceWith(renderTable()); }, 'aria-pressed': sortKey === key },
+          h('button', { 'data-sort-key': key, onclick: () => {
+            sortKey = key;
+            const nextTable = renderTable();
+            table.replaceWith(nextTable);
+            nextTable.querySelector(`[data-sort-key="${key}"]`).focus();
+          }, 'aria-pressed': sortKey === key },
             label, sortKey === key ? ' ↓' : ''));
         const tbody = h('tbody');
         sorted.forEach((r, i) => {
