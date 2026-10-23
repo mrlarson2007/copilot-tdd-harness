@@ -4,18 +4,22 @@ const fs = require('node:fs');
 
 const [input, output] = process.argv.slice(2);
 
-if (!fs.existsSync(input)) {
+function writeReport(details) {
 	fs.writeFileSync(output, `# Jev Recorded Results Report
 
 Status: incomplete
 
-The recorded-results JSON is missing.
+${details}
 
 Scores: unavailable. No scores were invented.
 
 This diagnostic does not indicate a completed evaluation.
 The existing completion gate remains authoritative.
 `, 'utf8');
+}
+
+if (!fs.existsSync(input)) {
+	writeReport('The recorded-results JSON is missing.');
 } else {
 	try {
 		const recorded = JSON.parse(fs.readFileSync(input, 'utf8'));
@@ -53,29 +57,9 @@ The existing completion gate remains authoritative.
 				].join('\n');
 			}).join('\n\n');
 		}
-		fs.writeFileSync(output, `# Jev Recorded Results Report
-
-Status: incomplete
-
-${details}
-
-Scores: unavailable. No scores were invented.
-
-This diagnostic does not indicate a completed evaluation.
-The existing completion gate remains authoritative.
-`, 'utf8');
+		writeReport(details);
 	} catch (error) {
 		if (!(error instanceof SyntaxError)) throw error;
-		fs.writeFileSync(output, `# Jev Recorded Results Report
-
-Status: incomplete
-
-The recorded-results JSON is malformed.
-
-Scores: unavailable. No scores were invented.
-
-This diagnostic does not indicate a completed evaluation.
-The existing completion gate remains authoritative.
-`, 'utf8');
+		writeReport('The recorded-results JSON is malformed.');
 	}
 }
