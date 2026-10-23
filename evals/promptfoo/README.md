@@ -94,6 +94,7 @@ report is `evals/promptfoo/results/promptfoo-red.json`.
 Run the deterministic evaluator and packaging checks without Copilot:
 
 ```bash
+RED_EVAL_TEST_ARTIFACT_DIR=/home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/promptfoo/results/red-unit-artifacts \
 node --test /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/fixtures/scenarios/calculator-cli-go/red-evaluator.test.js \
   /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/fixtures/scenarios/calculator-cli-go/red-only.test.js \
   /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/fixtures/scenarios/summary-deriver.test.js
@@ -101,7 +102,10 @@ node --test /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/fixt
 
 Scripted test mutations exist only in evaluator unit tests; the live positive
 scenario always invokes Copilot to author its test. No agent narrative or
-`red_result` is accepted as proof.
+`red_result` is accepted as proof. The optional `RED_EVAL_TEST_ARTIFACT_DIR`
+preserves each deterministic case's evidence before its temporary workspace is
+removed; these files are explicitly labeled `synthetic-evaluator-unit-test`,
+not real-agent results.
 
 This verifies **RED in isolation**, not RED/GREEN/COMMIT ordering throughout a
 complete TDD cycle. Git evidence detects ordinary mistakes and reset concealment,

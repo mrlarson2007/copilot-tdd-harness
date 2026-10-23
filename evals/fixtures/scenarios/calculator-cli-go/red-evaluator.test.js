@@ -37,10 +37,21 @@ async function evaluate(t, mutate) {
 	git(dir, 'config', 'commit.gpgsign', 'false');
 	git(dir, 'add', '.');
 	git(dir, 'commit', '--quiet', '-m', 'baseline');
-	return evaluateRed(dir, async () => {
+	const result = await evaluateRed(dir, async () => {
 		await mutate(dir);
 		return { ok: true, exitCode: 0, output: 'red_result: ok (not evidence)' };
 	});
+	if (process.env.RED_EVAL_TEST_ARTIFACT_DIR) {
+		const artifactDir = path.resolve(process.env.RED_EVAL_TEST_ARTIFACT_DIR);
+		fs.mkdirSync(artifactDir, { recursive: true });
+		const name = t.name.replace(/[^a-zA-Z0-9-]+/g, '-');
+		fs.writeFileSync(path.join(artifactDir, `${name}.json`), JSON.stringify({
+			kind: 'synthetic-evaluator-unit-test',
+			testName: t.name,
+			...result,
+		}, null, 2));
+	}
+	return result;
 }
 
 test('accepts one useful uncommitted RED test using actual Go and Git evidence', async (t) => {
