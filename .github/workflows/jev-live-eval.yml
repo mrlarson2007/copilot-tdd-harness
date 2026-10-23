@@ -110,7 +110,7 @@ jobs:
       - name: Score public fixture evidence with Jev
         shell: bash
         env:
-          TYPESAFE_API_KEY: ${{ secrets[vars.TYPESAFE_SECRET_NAME || 'TYPESAFE_API_KEY'] }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
           TDD_JEV_ALLOW_PUBLIC_FIXTURE_UPLOAD: '1'
           JEV_EVIDENCE_FILE: ${{ runner.temp }}/jev-in/evidence.json
           PROMPTFOO_CACHE_ENABLED: 'false'

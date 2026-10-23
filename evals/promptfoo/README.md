@@ -258,10 +258,12 @@ It never runs automatically for pull requests. Before enabling it:
    **Copilot Requests** access, with no repository write permissions. The account
    must have Copilot access. In **Settings → Secrets and variables → Actions**,
    save it as repository secret `COPILOT_GITHUB_TOKEN`.
-4. Store your TypeSafe key as an Actions secret named `TYPESAFE_API_KEY`. To use
-   another secret name, set repository variable `TYPESAFE_SECRET_NAME` to that
-   **name**, not the key. Keep keys out of chat, workflow inputs, command lines,
-   checked-in files, and artifacts. Do not provide either credential here.
+4. Store your TypeSafe key as an Actions secret named exactly `TYPESAFE_API_KEY`.
+   If an existing secret has another name, re-add it under this expected name
+   through **Settings → Secrets and variables → Actions**, without exposing its
+   value. The workflow uses only a static lookup of this secret. Keep keys out
+   of chat, workflow inputs, command lines, checked-in files, and artifacts.
+   Do not provide either credential here.
 5. **Only after configuring and checking both environments**, set repository
    variable `JEV_LIVE_ENABLED` to exactly `true`. Missing or other values disable
    both jobs. Remove it or set it to `false` to disable future runs.
@@ -284,20 +286,28 @@ Collection uses Node 22, the fixture's Go version, and pinned Copilot CLI
 Promptfoo/TypeSafe tooling. Only the collection step receives the Copilot token;
 **generated agent code can still access that token**. Minimal scope and short
 expiry limit risk but do not sandbox generated code. The TypeSafe key is never
+supplied to collection, and the collector refuses to run when
+`TYPESAFE_API_KEY` is present in its environment. Job environments are not
+themselves process sandboxes.
 The workflow token has only `contents: read`, checkout does not persist its
 credentials, and the workflow performs no release, push, or repository write.
 
-The collector writes bounded, redacted JSON outside the checkout. Only the fixed
-`evidence.json` file is uploaded as `jev-evidence` (including after collection
-failure when the file exists); workspaces, raw transcripts, and home directories
-are not uploaded. Artifacts expire after one day. Review/download permissions
-follow repository Actions access controls; redaction is not a substitute for
-using **only non-sensitive public fixture evidence**.
+The collector writes atomic evidence checkpoints outside the checkout as JSON
+with `schemaVersion: 1`, bound to the reviewed workflow revision and limited to
+**5 MiB**. It redacts known service credentials from environment variables and
+excludes raw agent transcripts. Only the fixed `evidence.json` file is uploaded
+as `jev-evidence` (including after collection failure when the file exists);
+workspaces and home directories are not uploaded. Artifacts expire after one
+day. Review/download permissions follow repository Actions access controls;
+redaction is not a substitute for using **only non-sensitive public fixture
+evidence**.
 
 Scoring installs locked tooling before receiving its secret, then reads the
 downloaded evidence as validated, bounded JSON data, not executable generated
-code. It does not install Go/Copilot or run the generated agent tests. Only the
-Jev scoring step receives the selected TypeSafe key and
+code. Validation checks the schema and workflow-revision binding and rejects
+symlinks, oversized files, reordered phases, and incomplete evidence. It does not
+install Go/Copilot or run the generated agent tests. Only the
+Jev scoring step receives the `TYPESAFE_API_KEY` secret and
 `TDD_JEV_ALLOW_PUBLIC_FIXTURE_UPLOAD=1`; this explicitly permits sending the
 public fixture evidence to TypeSafe. Copilot credentials are not supplied to
 scoring. Promptfoo caching is disabled.
@@ -311,3 +321,15 @@ Collection has a 45-minute limit and scoring a 5-minute limit. Concurrency permi
 only one active live evaluation, with no automatic cancellation/retry (GitHub
 may replace an older pending run when another is queued). No live run or
 credential access is needed for the deterministic local tests.
+
+Run the deterministic artifact-boundary and phase-collection tests without
+service credentials:
+
+```bash
+node --test /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/promptfoo/jev-recorded.test.js \
+  /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/fixtures/scenarios/calculator-cli-go/jev-phase-experiment.test.js
+```
+
+Adjust the absolute checkout prefix for your installation. A no-service
+Promptfoo smoke run reports `incomplete` with unavailable scores as expected;
+that is not a successful live evaluation.
