@@ -97,12 +97,17 @@ Compare models, with and without the harness (`--condition harness|baseline|both
 
 ```bash
 ./scripts/run-evals.sh --condition both --model claude-sonnet-4.5,gpt-5 --repeat 3
+./scripts/run-evals.sh --view  # open the native Promptfoo report for that model/condition matrix
 node scripts/build-eval-report.js   # updates site/data/eval-report.js for the dashboard
 ```
 
 ```powershell
 .\scripts\run-evals.ps1 -Condition both -Model claude-sonnet-4.5,gpt-5 -Repeat 3
 ```
+
+The native Promptfoo report contains every model × condition as a provider, with
+scenario-level outputs and assertion details. The static `site/` dashboard is a
+separate aggregated view.
 
 For more detail on the eval setup, see [`evals/promptfoo/README.md`](evals/promptfoo/README.md).
 To publish results on the report site, see [`site/README.md`](site/README.md).
