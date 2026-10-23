@@ -6,6 +6,115 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { questionsForPhase } = require('./jev-scorer');
+
+test('WhenScoredPhasesAreRecorded_ShouldRenderDeterministicTypedJudgmentsWithoutInventingAnswers', (t) => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
+	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const input = path.join(dir, 'recorded-results.json');
+	const output = path.join(dir, 'report.md');
+	const secret = 'PRIVATE_JUDGMENT_SENTINEL';
+	const maliciousId = '<img>\n|[id](x)\u202e';
+	const phases = Object.fromEntries(['red', 'green', 'commit', 'refactor'].map((phase) => [
+		phase, {
+			status: 'scored',
+			request: { questions: questionsForPhase(phase), instructions: secret, state: secret },
+			response: { model: `jev-${phase}`, answers: {}, usage: {
+				input_tokens: 123, output_tokens: 12, total_tokens: secret, details: secret,
+			}, evidence: secret },
+			elapsedMs: 42, error: secret,
+		},
+	]));
+	phases.red.response.answers = {
+		focused_test: { type: 'score', score: 1.8, confidence: 0.9, evidence: secret },
+		meaningful_failure: { type: 'noul', noul: 0.95, confidence: 0 },
+		no_commit: { type: 'score', score: 2 },
+		[maliciousId]: { type: 'noul', noul: 0.9 },
+	};
+	phases.red.request.questions[maliciousId] = { type: 'noul', instructions: secret, criteria: [secret] };
+	phases.green.response.answers = {
+		minimal_change: { type: 'score', score: 0, confidence: 'NONFINITE' },
+		tests_unchanged: { type: 'noul', noul: 0 },
+		verified_green: { type: 'noul', noul: 1.1 },
+		commit_scope: { type: 'noul', noul: '0.9' },
+	};
+	phases.green.response.usage = { input_tokens: 'NONFINITE', output_tokens: -1 };
+	phases.green.elapsedMs = 'NONFINITE';
+	phases.commit.response.answers = {
+		atomic_commit: { type: 'noul', noul: null },
+		message_quality: { type: 'score', score: 1, confidence: 0.75 },
+		no_scope_creep: { type: 'noul', noul: -0.1 },
+	};
+	phases.commit.response.usage = { input_tokens: 0, output_tokens: '12' };
+	phases.commit.request.questions.message_quality.criteria = [secret, secret, secret];
+	phases.refactor.response.answers = {
+		design_quality: { type: 'score', score: 2, confidence: null },
+		behavior_preserved: { type: 'noul', noul: 'NONFINITE' },
+		committed_if_changed: { type: 'noul', noul: 1 },
+	};
+	const execution = { revision: 'abc123', fixtureId: 'fixture', scenarioId: 'scenario',
+		status: 'complete', collectionStatus: 'complete', phases, evidence: secret };
+	const invalid = { status: 'complete', phases: {
+		red: { status: 'scored', response: { answers: { focused_test: { type: 'score', score: 2.1 } } } },
+		green: { status: 'scored', response: { answers: { minimal_change: { type: 'score', score: -1 } } } },
+		commit: { status: 'scored', response: { answers: { message_quality: { type: 'score', score: 'NONFINITE' } } } },
+		refactor: { status: 'scored', response: { model: 'omitted-answers' } },
+	} };
+	const rawInput = JSON.stringify({ results: { results: [execution, invalid].map((value) => ({
+		response: { output: value },
+	})) } }).replaceAll('"NONFINITE"', '1e400');
+	fs.writeFileSync(input, rawInput);
+
+	const render = () => {
+		const result = spawnSync(process.execPath, [path.join(__dirname, 'jev-report.js'), input, output],
+			{ encoding: 'utf8' });
+		assert.equal(result.error, undefined);
+		assert.equal(result.status, 0);
+		assert.doesNotMatch(result.stdout + result.stderr, /PRIVATE_JUDGMENT_SENTINEL/);
+		return fs.readFileSync(output, 'utf8');
+	};
+	const report = render();
+	assert.match(report, /Raw score \(0–2\)/);
+	assert.match(report, /Noul yes probability \(0–1\)/);
+	assert.match(report, /Confidence/);
+	assert.match(report, /Complete execution does not imply a favorable judgment/);
+	assert.match(report, /0, 1, and 2.*criteria/);
+	assert.match(report, /noul.*probability of yes/i);
+	for (const phase of Object.keys(phases)) {
+		assert.ok(report.includes(`${phase.toUpperCase()}: status: scored; model: jev-${phase}`));
+		for (const [id, question] of Object.entries(questionsForPhase(phase))) {
+			const escapedId = id.replaceAll('_', '\\_');
+			assert.ok(report.includes(`| ${escapedId} |`), `Question ID ${id} must be present`);
+			for (const label of question.criteria || []) assert.ok(report.includes(label));
+		}
+	}
+	const rows = report.split('\n').filter((line) => line.startsWith('| '));
+	const rowFor = (id) => rows.find((line) => line.startsWith(`| ${id.replaceAll('_', '\\_')} |`));
+	for (const [id, cells] of [
+		['focused_test', '| 1.8 | — | 0.9 |'],
+		['meaningful_failure', '| — | 0.95 | 0 |'],
+		['minimal_change', '| 0 | — | unavailable |'],
+		['tests_unchanged', '| — | 0 | unavailable |'],
+		['message_quality', '| 1 | — | 0.75 |'],
+		['design_quality', '| 2 | — | unavailable |'],
+		['committed_if_changed', '| — | 1 | unavailable |'],
+	]) assert.ok(rowFor(id).includes(cells), `Typed numeric cells for ${id}`);
+	for (const id of ['scope_preserved', 'no_commit', 'verified_green', 'commit_scope',
+		'atomic_commit', 'no_scope_creep', 'behavior_preserved']) {
+		assert.match(rowFor(id), /\| unavailable \| unavailable \| unavailable \| unavailable:/);
+	}
+	assert.ok(rows.some((line) => line.startsWith('| &lt;img&gt;\\|\\[id\\]\\(x\\) |')
+		&& line.includes('unavailable:')));
+	assert.equal(rows.filter((line) => line.includes('unavailable:')).length, 22,
+		'Seven invalid/missing answers plus one unknown ID and all fourteen answers in the second execution');
+	assert.ok(report.includes('elapsedMs: 42; input_tokens: 123; output_tokens: 12'));
+	assert.ok(report.includes('elapsedMs: unavailable; input_tokens: unavailable; output_tokens: unavailable'));
+	assert.ok(report.includes('elapsedMs: 42; input_tokens: 0; output_tokens: unavailable'));
+	assert.doesNotMatch(report, /PRIVATE_JUDGMENT_SENTINEL|Infinity|NaN|<img>|total_tokens|instructions|threshold|average|aggregate grade/i);
+	assert.doesNotMatch(report, /Scores: unavailable\. No scores were invented\./);
+	assert.equal(render(), report, 'Repeated rendering must be byte-for-byte deterministic');
+	assert.equal(fs.readFileSync(input, 'utf8'), rawInput);
+});
 
 test('WhenRecordedResultsAreMissing_ShouldWriteIncompleteDiagnosticAndExitSuccessfully', (t) => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
