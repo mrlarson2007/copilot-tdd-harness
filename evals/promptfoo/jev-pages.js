@@ -114,6 +114,15 @@ function generatePages(input, output, env = process.env) {
 		'jev.html': page('Recorded Jev scorecard', runMetadata, summary + explanation + details),
 		'promptfoo.html': page('Promptfoo execution results', runMetadata, summary + explanation + details),
 	};
+	if (fs.existsSync(output)) {
+		if (!fs.lstatSync(output).isDirectory()) throw new Error('Invalid output directory');
+		for (const name of fs.readdirSync(output)) {
+			const stat = fs.lstatSync(path.join(output, name));
+			if (!Object.hasOwn(pages, name) || !stat.isFile() || stat.nlink !== 1) {
+				throw new Error('Invalid output contents');
+			}
+		}
+	}
 	fs.mkdirSync(output, { recursive: true });
 	for (const [name, html] of Object.entries(pages)) fs.writeFileSync(path.join(output, name), html, 'utf8');
 }

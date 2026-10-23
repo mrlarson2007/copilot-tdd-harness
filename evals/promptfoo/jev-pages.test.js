@@ -137,3 +137,48 @@ test('WhenCompleteRowsHaveLowOrFractionalJudgments_ShouldPublishRecordedCanonica
 		}
 	}
 });
+
+test('WhenAnyExecutionOrOutputBoundaryIsUnsafe_ShouldRejectBeforeChangingInputOrExistingPages', (t) => {
+	const files = workspace(t);
+	fs.mkdirSync(files.output);
+	const previous = path.join(files.output, 'index.html');
+	fs.writeFileSync(previous, 'previous deployment');
+	const invalidRows = [
+		null, {}, { ...execution(), status: 'incomplete' }, { ...execution(), status: 'complete-hostile' },
+		{ ...execution(), collectionStatus: 'incomplete' },
+		{ ...execution(), revision: 'b'.repeat(40) }, { ...execution(), revision: undefined },
+		{ ...execution(), phases: null },
+		...phases.flatMap((phase) => [undefined, 'unavailable', 'invalid-response', 'missing-evidence', '<script>'].map((status) => {
+			const row = execution();
+			if (status === undefined) delete row.phases[phase];
+			else row.phases[phase].status = status;
+			return row;
+		})),
+	];
+	for (const invalid of invalidRows) {
+		for (const rows of [[invalid], [execution(), invalid], [invalid, execution()]]) {
+			writeRows(files, rows);
+			const original = fs.readFileSync(files.input);
+			const result = run(files);
+			assert.equal(result.status, 1);
+			assert.match(result.stderr, /Evaluation is incomplete or invalid/);
+			assert.equal(fs.readFileSync(previous, 'utf8'), 'previous deployment');
+			assert.deepEqual(fs.readdirSync(files.output), ['index.html']);
+			assert.deepEqual(fs.readFileSync(files.input), original);
+		}
+	}
+	writeRows(files, [execution()]);
+	for (const sha of [undefined, '', 'not-a-sha', 'b'.repeat(40)]) {
+		assert.equal(run(files, { ...environment, GITHUB_SHA: sha }).status, 1);
+		assert.equal(fs.readFileSync(previous, 'utf8'), 'previous deployment');
+	}
+	fs.rmSync(previous);
+	fs.symlinkSync(files.input, previous);
+	const original = fs.readFileSync(files.input);
+	assert.equal(run(files).status, 1, 'must reject symlinked destination pages');
+	assert.deepEqual(fs.readFileSync(files.input), original);
+	assert.deepEqual(fs.readdirSync(files.output), ['index.html']);
+	fs.rmSync(previous);
+	fs.writeFileSync(path.join(files.output, 'raw.json'), 'must not publish');
+	assert.equal(run(files).status, 1, 'must not publish a directory containing other artifacts');
+});
