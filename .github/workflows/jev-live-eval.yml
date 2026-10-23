@@ -1,0 +1,144 @@
+name: Jev Live Evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      reviewed_sha:
+        description: Reviewed current default-branch commit (exact 40-character SHA)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jev-live-eval
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      inputs.reviewed_sha == github.sha &&
+      vars.JEV_LIVE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: jev-agent
+    steps:
+      - name: Validate reviewed revision
+        shell: bash
+        env:
+          REVIEWED_SHA: ${{ inputs.reviewed_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$REVIEWED_SHA" =~ ^[0-9a-fA-F]{40}$ ]]
+          [[ "$REVIEWED_SHA" == "$GITHUB_SHA" ]]
+
+      - name: Checkout reviewed revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Set up fixture Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: evals/fixtures/projects/calculator-cli-go/clean/go.mod
+          cache: false
+
+      - name: Install pinned Copilot CLI outside checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/jev-copilot" --no-audit --no-fund @github/copilot@1.0.103
+          echo "$RUNNER_TEMP/jev-copilot/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Collect public fixture evidence
+        shell: bash
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        run: node "$GITHUB_WORKSPACE/evals/promptfoo/jev-collect.js" "$RUNNER_TEMP/jev-out/evidence.json"
+
+      - name: Preserve bounded redacted evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jev-evidence
+          path: ${{ runner.temp }}/jev-out/evidence.json
+          if-no-files-found: ignore
+          retention-days: 1
+
+  score:
+    needs: collect
+    if: >-
+      needs.collect.result == 'success' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      inputs.reviewed_sha == github.sha &&
+      vars.JEV_LIVE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: jev-score
+    steps:
+      - name: Checkout reviewed revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Install locked scoring tooling before secret use
+        shell: bash
+        run: npm ci --prefix .promptfoo-tooling --no-audit --no-fund
+
+      - name: Download evidence only
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: jev-evidence
+          path: ${{ runner.temp }}/jev-in
+
+      - name: Score public fixture evidence with Jev
+        shell: bash
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          TDD_JEV_ALLOW_PUBLIC_FIXTURE_UPLOAD: '1'
+          JEV_EVIDENCE_FILE: ${{ runner.temp }}/jev-in/evidence.json
+          PROMPTFOO_CACHE_ENABLED: 'false'
+        run: bash "$GITHUB_WORKSPACE/scripts/run-evals.sh" --config "$GITHUB_WORKSPACE/evals/promptfoo/promptfooconfig.jev-recorded.yaml"
+
+      - name: Require complete execution, not favorable judgments
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const file = path.join(process.env.GITHUB_WORKSPACE, 'evals/promptfoo/results/promptfoo-jev-recorded.json');
+          const report = JSON.parse(fs.readFileSync(file, 'utf8'));
+          const rows = report?.results?.results;
+          if (!Array.isArray(rows) || rows.length === 0 ||
+              rows.some(row => row?.response?.output?.status !== 'complete')) {
+            throw new Error('Jev evaluation is incomplete; assertion-free green rows are not proof of completion.');
+          }
+          NODE
+
+      - name: Preserve scoring reports only
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jev-scores
+          path: |
+            evals/promptfoo/results/promptfoo-jev-recorded.json
+            evals/promptfoo/results/jev-recorded-score.json
+          if-no-files-found: warn
+          retention-days: 1

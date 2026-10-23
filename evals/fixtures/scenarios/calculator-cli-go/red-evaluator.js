@@ -1,0 +1,301 @@
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const { spawnSync } = require('child_process');
+const { isDeepStrictEqual } = require('util');
+const { addSubtractImplementation } = require('./scenario-helpers');
+
+function command(dir, executable, args, options = {}) {
+	const result = spawnSync(executable, args, {
+		cwd: dir,
+		encoding: 'utf8',
+		timeout: 90_000,
+		maxBuffer: 8 * 1024 * 1024,
+		env: { ...(options.env || process.env), GOWORK: 'off', GOFLAGS: '' },
+	});
+	return {
+		command: [executable, ...args],
+		exitCode: result.status,
+		signal: result.signal,
+		error: result.error?.message || null,
+		output: `${result.stdout || ''}${result.stderr || ''}`,
+	};
+}
+
+function succeeded(result) {
+	return result.exitCode === 0 && !result.error && !result.signal;
+}
+
+function snapshot(dir, relative = '') {
+	const files = {};
+	for (const entry of fs.readdirSync(path.join(dir, relative))) {
+		if (!relative && entry === '.git') continue;
+		const name = relative ? `${relative}/${entry}` : entry;
+		const full = path.join(dir, name);
+		const stat = fs.lstatSync(full);
+		if (stat.isDirectory()) {
+			Object.assign(files, snapshot(dir, name));
+		} else {
+			files[name] = {
+				mode: stat.mode,
+				type: stat.isSymbolicLink() ? 'symlink' : 'file',
+				content: stat.isSymbolicLink() ? fs.readlinkSync(full) : fs.readFileSync(full).toString('base64'),
+			};
+		}
+	}
+	return files;
+}
+
+function gitEvidence(dir, options = {}) {
+	const git = (...args) => command(dir, 'git', args, options);
+	const logsDir = path.join(dir, '.git', 'logs');
+	const staged = git('diff', '--cached', '--no-ext-diff', '--no-textconv');
+	const stagedPaths = git('diff', '--cached', '--name-only', '-z');
+	const stagedFiles = {};
+	if (succeeded(stagedPaths)) {
+		for (const name of stagedPaths.output.split('\0').filter(Boolean)) {
+			const entries = git('ls-files', '--stage', '-z', '--', name).output.split('\0').filter(Boolean);
+			const match = entries.length === 1 && entries[0].match(/^(\d+) ([0-9a-f]+) 0\t/);
+			if (!match) {
+				stagedFiles[name] = null;
+				continue;
+			}
+			const blob = git('cat-file', 'blob', match[2]);
+			const mode = Number.parseInt(match[1], 8);
+			stagedFiles[name] = succeeded(blob) ? {
+				mode,
+				type: (mode & 0o170000) === 0o100000 ? 'file' : 'symlink',
+				content: Buffer.from(blob.output).toString('base64'),
+			} : null;
+		}
+	}
+	return {
+		head: git('rev-parse', 'HEAD'),
+		status: git('status', '--porcelain=v1', '--untracked-files=all'),
+		diff: git('diff', '--no-ext-diff', '--no-textconv', 'HEAD', '--'),
+		staged,
+		stagedFiles: succeeded(stagedPaths) ? stagedFiles : null,
+		reflog: git('reflog', 'show', '--all', '--format=%H %gs'),
+		refs: git('show-ref'),
+		objects: git('cat-file', '--batch-all-objects', '--batch-check=%(objectname) %(objecttype)'),
+		config: git('config', '--local', '--list'),
+		rawLogs: fs.existsSync(logsDir) ? snapshot(logsDir) : null,
+	};
+}
+
+function goTests(dir, pattern, options = {}) {
+	return command(dir, 'go', [
+		'test', '-json', '-count=1', '-timeout=30s',
+		...(pattern ? ['-run', pattern] : []), './...',
+	], options);
+}
+
+function events(result) {
+	return result.output.split('\n').flatMap((line) => {
+		try { return [JSON.parse(line)]; } catch { return []; }
+	});
+}
+
+function topLevelTestName(name, inventory) {
+	const match = inventory.filter((test) => name === test || name.startsWith(`${test}/`))
+		.sort((left, right) => right.length - left.length)[0];
+	return match || name;
+}
+
+function names(result, action, inventory) {
+	return [...new Set(events(result).filter((event) => event.Action === action && event.Test)
+		.map((event) => topLevelTestName(event.Test, inventory)))].sort();
+}
+
+function isTestOrSubtest(name, test) {
+	return name === test || (typeof name === 'string' && name.startsWith(`${test}/`));
+}
+
+function pattern(namesToRun) {
+	return `^(${namesToRun.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`;
+}
+
+function listedTests(result) {
+	return result.output.split('\n').filter((line) => /^Test\S+$/.test(line)).sort();
+}
+
+function listTests(dir) {
+	return command(dir, 'go', ['test', '-list', '^Test', './...']);
+}
+
+function unchangedGit(before, after) {
+	return ['head', 'reflog', 'refs', 'objects', 'config'].every((key) => {
+		const normalize = (result) => key === 'objects'
+			? result.output.split('\n').filter((line) => line.endsWith(' commit')).sort().join('\n')
+			: result.output;
+		return succeeded(before[key]) && succeeded(after[key])
+			&& normalize(before[key]) === normalize(after[key]);
+	}) && isDeepStrictEqual(before.rawLogs, after.rawLogs);
+}
+
+function testFileAdditionIsValid(name, before, after) {
+	if (!/^[^/]+_test\.go$/.test(name) || !after || after.type !== 'file') return false;
+	if (!before) return true;
+	return before.type === 'file' && before.mode === after.mode
+		&& Buffer.from(after.content, 'base64').subarray(0, Buffer.from(before.content, 'base64').length)
+			.equals(Buffer.from(before.content, 'base64'));
+}
+
+function checkIndexPreserved(dir, expected, checks) {
+	const actual = gitEvidence(dir);
+	checks.verificationPreservesIndex = checks.verificationPreservesIndex !== false
+		&& succeeded(actual.staged)
+		&& isDeepStrictEqual(expected.stagedFiles, actual.stagedFiles);
+	return actual;
+}
+
+function captureVerificationState(dir, baseline, red, checks) {
+	red.afterVerification = { files: snapshot(dir), git: gitEvidence(dir) };
+	checks.noCommits = unchangedGit(baseline.git, red.git)
+		&& unchangedGit(baseline.git, red.afterVerification.git);
+	checks.verificationPreservesWorkspace = isDeepStrictEqual(red.files, red.afterVerification.files);
+	checks.verificationPreservesIndex = checks.verificationPreservesIndex !== false
+		&& isDeepStrictEqual(red.git.stagedFiles, red.afterVerification.git.stagedFiles);
+}
+
+async function evaluateRed(dir, runAgent) {
+	const checks = {};
+	const evidence = {
+		baseline: {
+			files: snapshot(dir),
+			git: gitEvidence(dir),
+			list: listTests(dir),
+			suite: goTests(dir),
+			environment: { GOWORK: 'off', GOFLAGS: '', go: command(dir, 'go', ['version']) },
+		},
+	};
+	const baseline = evidence.baseline;
+	const existing = listedTests(baseline.list);
+	checks.baselinePasses = succeeded(baseline.list) && succeeded(baseline.suite)
+		&& existing.length > 0 && isDeepStrictEqual(names(baseline.suite, 'pass', existing), existing);
+	if (!checks.baselinePasses) return { pass: false, checks, evidence, agent: null };
+
+	let agent;
+	try {
+		agent = await runAgent();
+	} catch (error) {
+		agent = { ok: false, output: String(error), exitCode: null };
+	}
+	checks.agentCompleted = agent?.ok === true && agent.exitCode === 0;
+	const red = evidence.red = {
+		files: snapshot(dir),
+		git: gitEvidence(dir),
+		list: listTests(dir),
+	};
+	const additions = listedTests(red.list).filter((name) => !existing.includes(name));
+	checkIndexPreserved(dir, red.git, checks);
+	checks.oneNewTest = succeeded(red.list) && additions.length === 1
+		&& existing.every((name) => listedTests(red.list).includes(name));
+	const changed = Object.keys({ ...baseline.files, ...red.files })
+		.filter((name) => !isDeepStrictEqual(baseline.files[name], red.files[name]));
+	red.changedFiles = changed;
+	red.newTests = additions;
+	const stagedChangesValid = red.git.stagedFiles !== null
+		&& Object.entries(red.git.stagedFiles).every(([name, after]) =>
+			testFileAdditionIsValid(name, baseline.files[name], after));
+	checks.onlyTestsChanged = changed.length > 0 && changed.every((name) =>
+		testFileAdditionIsValid(name, baseline.files[name], red.files[name]))
+		&& stagedChangesValid;
+	red.existing = goTests(dir, pattern(existing));
+	checkIndexPreserved(dir, red.git, checks);
+	checks.existingTestsPass = succeeded(red.existing)
+		&& isDeepStrictEqual(names(red.existing, 'pass', existing), existing)
+		&& names(red.existing, 'skip', existing).length === 0;
+	captureVerificationState(dir, baseline, red, checks);
+	if (!checks.oneNewTest) return { pass: false, checks, evidence, agent };
+
+	red.selected = goTests(dir, pattern(additions));
+	checkIndexPreserved(dir, red.git, checks);
+	red.suite = goTests(dir);
+	checkIndexPreserved(dir, red.git, checks);
+	const selectedOutput = events(red.selected).filter((event) => isTestOrSubtest(event.Test, additions[0])
+		&& event.Action === 'output').map((event) => event.Output || '').join('');
+	checks.expectedAssertionFailure = red.selected.exitCode === 1 && !red.selected.error
+		&& !red.selected.signal && isDeepStrictEqual(names(red.selected, 'fail', additions), additions)
+		&& names(red.selected, 'skip', additions).length === 0
+		&& /_test\.go:\d+:/.test(selectedOutput)
+		&& /unknown command: subtract/.test(selectedOutput)
+		&& !/panic:|test timed out|DATA RACE/.test(red.selected.output);
+	checks.onlyRequestedFailure = red.suite.exitCode === 1 && !red.suite.error && !red.suite.signal
+		&& isDeepStrictEqual(names(red.suite, 'fail', [...existing, ...additions]), additions)
+		&& isDeepStrictEqual(names(red.suite, 'pass', [...existing, ...additions]), existing)
+		&& isDeepStrictEqual(names(red.suite, 'run', [...existing, ...additions]), [...existing, ...additions].sort());
+	captureVerificationState(dir, baseline, red, checks);
+	checks.sensitiveToWrongImplementation = false;
+
+	// Capture RED evidence above before the evaluator (not the agent) applies GREEN.
+	if (checks.onlyTestsChanged && checks.noCommits && checks.verificationPreservesWorkspace) {
+		const mainPath = path.join(dir, 'main.go');
+		const original = fs.readFileSync(mainPath);
+		try {
+			addSubtractImplementation(dir);
+			const generalImplementation = fs.readFileSync(mainPath, 'utf8');
+			const requestedImplementation = generalImplementation.replace(
+				'fmt.Println(left - right)',
+				'if left == 9 && right == 4 { fmt.Println(5) } else { fmt.Println("unexpected operands") }',
+			);
+			if (requestedImplementation === generalImplementation) {
+				throw new Error('Failed to constrain known subtract implementation to the requested operands');
+			}
+			fs.writeFileSync(mainPath, requestedImplementation);
+			const expectedFiles = snapshot(dir);
+			const knownSelected = goTests(dir, pattern(additions));
+			checkIndexPreserved(dir, red.git, checks);
+			const knownSuite = goTests(dir);
+			checkIndexPreserved(dir, red.git, checks);
+			evidence.knownImplementation = {
+				production: fs.readFileSync(mainPath, 'utf8'),
+				selected: knownSelected,
+				suite: knownSuite,
+				files: snapshot(dir),
+				git: gitEvidence(dir),
+			};
+			const known = evidence.knownImplementation;
+			checks.verificationPreservesIndex = checks.verificationPreservesIndex
+				&& isDeepStrictEqual(red.git.stagedFiles, known.git.stagedFiles);
+			checks.noCommits = checks.noCommits && unchangedGit(baseline.git, known.git);
+			checks.verificationPreservesWorkspace = checks.verificationPreservesWorkspace
+				&& isDeepStrictEqual(expectedFiles, known.files);
+			checks.usefulWithKnownImplementation = succeeded(known.selected) && succeeded(known.suite)
+				&& isDeepStrictEqual(names(known.selected, 'pass', additions), additions)
+				&& isDeepStrictEqual(names(known.suite, 'pass', [...existing, ...additions]), [...existing, ...additions].sort())
+				&& Object.keys(red.files).filter((name) => name.endsWith('_test.go'))
+					.every((name) => isDeepStrictEqual(red.files[name], known.files[name]));
+			if (checks.usefulWithKnownImplementation && checks.verificationPreservesWorkspace && checks.noCommits) {
+				const wrongSource = known.production.replace('fmt.Println(5)', 'fmt.Println(6)');
+				fs.writeFileSync(mainPath, wrongSource);
+				const expectedWrongFiles = snapshot(dir);
+				const wrong = evidence.wrongImplementation = {
+					production: wrongSource,
+					selected: goTests(dir, pattern(additions)),
+					files: snapshot(dir),
+					git: gitEvidence(dir),
+				};
+				checks.verificationPreservesIndex = checks.verificationPreservesIndex
+					&& isDeepStrictEqual(red.git.stagedFiles, wrong.git.stagedFiles);
+				checks.sensitiveToWrongImplementation = wrongSource !== known.production
+					&& wrong.selected.exitCode === 1 && !wrong.selected.error && !wrong.selected.signal
+					&& isDeepStrictEqual(names(wrong.selected, 'fail', additions), additions)
+					&& names(wrong.selected, 'skip', additions).length === 0
+					&& /_test\.go:\d+:/.test(wrong.selected.output)
+					&& !/panic:|test timed out|DATA RACE/.test(wrong.selected.output);
+				checks.noCommits = checks.noCommits && unchangedGit(baseline.git, wrong.git);
+				checks.verificationPreservesWorkspace = checks.verificationPreservesWorkspace
+					&& isDeepStrictEqual(expectedWrongFiles, wrong.files);
+			}
+		} finally {
+			fs.writeFileSync(mainPath, original);
+		}
+	} else {
+		checks.usefulWithKnownImplementation = false;
+	}
+	return { pass: Object.values(checks).every(Boolean), checks, evidence, agent };
+}
+
+module.exports = { evaluateRed, command, snapshot, gitEvidence, goTests };
