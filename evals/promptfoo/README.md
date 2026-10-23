@@ -211,11 +211,20 @@ results, phase JSON, Git evidence, and Jev requests/responses under:
 The Promptfoo report is `evals/promptfoo/results/promptfoo-jev.json`. These
 generated results are ignored by Git.
 
+This config also opts into retaining the workspace if artifact writing fails.
+The output then has `status: artifact-persistence-failed`, the prior execution
+status in `executionStatus`, and recovery locations/error details in Promptfoo
+metadata. A recovery JSON is attempted in the retained temporary directory.
+Even if that fails (for example, a full disk), Promptfoo still receives the
+in-memory phase records and the workspace is not deleted. Remove the retained
+directory manually after recovering the evidence.
+
 ### Deterministic checks and live limitations
 
 ```bash
 node --test /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/promptfoo/jev-scorer.test.js \
-  /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/fixtures/scenarios/calculator-cli-go/jev-phase-experiment.test.js
+  /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/fixtures/scenarios/calculator-cli-go/jev-phase-experiment.test.js \
+  /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/promptfoo/benchmark-provider.test.js
 ```
 
 Unit tests use explicitly synthetic agents/Jev responses, real Go and Git, and

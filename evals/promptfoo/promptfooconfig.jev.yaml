@@ -22,6 +22,7 @@ tests:
       fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
       scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/jev-phase-experiment.js
       artifactOutputDir: ./results/jev-artifacts
+      preserveWorkspaceOnArtifactFailure: true
     # Deliberately no assertions or pass thresholds: inspect output.status and phases.
 
 outputPath:

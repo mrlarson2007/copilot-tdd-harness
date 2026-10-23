@@ -195,6 +195,7 @@ class BenchmarkProvider {
     const scenarioModulePath = vars.scenarioModulePath;
     const summaryFilePath = vars.summaryFilePath;
     let workspace = null;
+    let retainForRecovery = false;
 
     if (!scenarioModulePath && !summaryFilePath) {
       throw new Error('Missing vars.scenarioModulePath or vars.summaryFilePath for promptfoo benchmark provider');
@@ -217,8 +218,31 @@ class BenchmarkProvider {
           initialHead: workspace?.initialHead || null,
           vars,
         });
-      const output = scenarioResult.summary;
-      const artifactDir = persistScenarioArtifacts(workspace, output, scenarioResult, vars);
+      let output = scenarioResult.summary;
+      let artifactDir = null;
+      let artifactPersistenceError = null;
+      let recoveryFilePath = null;
+      try {
+        artifactDir = persistScenarioArtifacts(workspace, output, scenarioResult, vars);
+      } catch (error) {
+        if (!workspace || !vars.preserveWorkspaceOnArtifactFailure) {
+          throw error;
+        }
+        retainForRecovery = true;
+        artifactPersistenceError = { code: error.code || null, message: error.message };
+        output = { ...output, executionStatus: output.status, status: 'artifact-persistence-failed' };
+        try {
+          recoveryFilePath = path.join(workspace.tempRoot, 'scenario-recovery.json');
+          fs.writeFileSync(recoveryFilePath, `${JSON.stringify({
+            summary: output,
+            artifacts: scenarioResult.artifacts,
+            artifactPersistenceError,
+          }, null, 2)}\n`, 'utf8');
+        } catch (recoveryError) {
+          recoveryFilePath = null;
+          artifactPersistenceError.recoveryError = recoveryError.code || recoveryError.message;
+        }
+      }
 
       return {
         output,
@@ -230,7 +254,12 @@ class BenchmarkProvider {
           workspacePrepared: Boolean(workspace),
           workspaceInitialHead: workspace?.initialHead || null,
           workspaceSourcePath: workspace?.fixtureSourcePath || null,
-          workspaceDisposed: !vars.persistWorkspace,
+          workspaceDisposed: !vars.persistWorkspace && !retainForRecovery,
+          ...(retainForRecovery ? {
+            retainedWorkspace: { tempRoot: workspace.tempRoot, workspaceDir: workspace.workspaceDir },
+            artifactPersistenceError,
+            recoveryFilePath,
+          } : {}),
           scenarioModulePath: scenarioResult?.scenarioModulePath || null,
           summaryFilePath: summaryFilePath ? resolvePath(summaryFilePath) : null,
           scenarioArtifacts: scenarioResult?.artifacts || null,
@@ -238,7 +267,7 @@ class BenchmarkProvider {
         },
       };
     } finally {
-      if (!vars.persistWorkspace) {
+      if (!vars.persistWorkspace && !retainForRecovery) {
         removeDisposableWorkspace(workspace);
       }
     }
