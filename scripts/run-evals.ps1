@@ -78,32 +78,64 @@ try {
     if ($models.Count -eq 0) { $models = @("") }
 
     New-Item -ItemType Directory -Force -Path "results/runs" | Out-Null
+    $matrixConfigs = @()
 
     foreach ($config in $configs) {
-        foreach ($cond in $conditions) {
-            foreach ($m in $models) {
-                $stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
-                $configName = [System.IO.Path]::GetFileNameWithoutExtension($config)
-                $modelName = if ($m) { $m } else { "default" }
-                $runFile = "results/runs/$stamp-$(ConvertTo-SafeSegment $configName)-$cond-$(ConvertTo-SafeSegment $modelName).json"
+        $configName = [System.IO.Path]::GetFileNameWithoutExtension($config)
+        $configContent = Get-Content -LiteralPath $config -Raw
+        if ($configContent.Contains("file://./benchmark-provider.js")) {
+            $stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
+            $runFile = "results/runs/$stamp-$(ConvertTo-SafeSegment $configName)-matrix.json"
+            $configDirectory = Split-Path -Parent (Resolve-Path -LiteralPath $config)
+            $matrixConfig = Join-Path $configDirectory ".$configName-$stamp-$PID.matrix.yaml"
+            $matrixConfigs += $matrixConfig
+            $matrixArgs = @((Join-Path $scriptDir "build-promptfoo-matrix.js"), $config, $matrixConfig)
+            foreach ($cond in $conditions) { $matrixArgs += @("--condition", $cond) }
+            foreach ($m in $models) { $matrixArgs += @("--model", $m) }
 
-                $outputs = @(Get-ConfigOutputPaths $config) + $runFile
+            & node @matrixArgs
+            if ($LASTEXITCODE -ne 0) {
+                if ($finalStatus -eq 0) { $finalStatus = $LASTEXITCODE }
+                continue
+            }
 
-                $promptfooArgs = @("eval", "-c", $config)
-                if ($Repeat -gt 0) { $promptfooArgs += @("--repeat", "$Repeat") }
-                $promptfooArgs += "-o"
-                $promptfooArgs += $outputs
+            $outputs = @(Get-ConfigOutputPaths $config) + $runFile
+            $promptfooArgs = @("eval", "-c", $matrixConfig)
+            if ($Repeat -gt 0) { $promptfooArgs += @("--repeat", "$Repeat") }
+            $promptfooArgs += "-o"
+            $promptfooArgs += $outputs
 
-                $env:EVAL_CONDITION = $cond
-                $env:EVAL_MODEL = $m
-                $status = Invoke-Promptfoo -PromptfooArgs $promptfooArgs -Label "Running $configName (condition=$cond, model=$modelName)"
-                Write-Host "    results: evals/promptfoo/$runFile (exit $status)"
-                if ($status -ne 0 -and $finalStatus -eq 0) { $finalStatus = $status }
+            $status = Invoke-Promptfoo -PromptfooArgs $promptfooArgs -Label "Running $configName (models=$($models.Count), conditions=$($conditions -join ','))"
+            Write-Host "    results: evals/promptfoo/$runFile (exit $status)"
+            if ($status -ne 0 -and $finalStatus -eq 0) { $finalStatus = $status }
+        } else {
+            foreach ($cond in $conditions) {
+                foreach ($m in $models) {
+                    $stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
+                    $modelName = if ($m) { $m } else { "default" }
+                    $runFile = "results/runs/$stamp-$(ConvertTo-SafeSegment $configName)-$cond-$(ConvertTo-SafeSegment $modelName).json"
+
+                    $outputs = @(Get-ConfigOutputPaths $config) + $runFile
+
+                    $promptfooArgs = @("eval", "-c", $config)
+                    if ($Repeat -gt 0) { $promptfooArgs += @("--repeat", "$Repeat") }
+                    $promptfooArgs += "-o"
+                    $promptfooArgs += $outputs
+
+                    $env:EVAL_CONDITION = $cond
+                    $env:EVAL_MODEL = $m
+                    $status = Invoke-Promptfoo -PromptfooArgs $promptfooArgs -Label "Running $configName (condition=$cond, model=$modelName)"
+                    Write-Host "    results: evals/promptfoo/$runFile (exit $status)"
+                    if ($status -ne 0 -and $finalStatus -eq 0) { $finalStatus = $status }
+                }
             }
         }
     }
 }
 finally {
+    foreach ($matrixConfig in $matrixConfigs) {
+        if (Test-Path -LiteralPath $matrixConfig) { Remove-Item -LiteralPath $matrixConfig -Force }
+    }
     $env:EVAL_MODEL = $previousModel
     $env:EVAL_CONDITION = $previousCondition
     Pop-Location
