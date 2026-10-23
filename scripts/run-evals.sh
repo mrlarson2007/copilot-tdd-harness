@@ -21,8 +21,9 @@ Usage: $0 [--extended|--both|--view|--config <path>]
                 'baseline' runs the default agent with no skills, 'both' runs each.
   --repeat      Number of times promptfoo runs each test case.
 
-Every run also writes evals/promptfoo/results/runs/<stamp>-<config>-<condition>-<model>.json,
-which scripts/build-eval-report.js turns into site/data/eval-report.js.
+Benchmark models and conditions run together in one Promptfoo evaluation so
+the native viewer compares every matrix cell. Each evaluation is archived in
+evals/promptfoo/results/runs/ and can also feed scripts/build-eval-report.js.
 USAGE
 }
 
@@ -148,40 +149,82 @@ IFS=',' read -r -a model_list <<< "${models:-}"
 if [[ ${#model_list[@]} -eq 0 ]]; then
   model_list=("")
 fi
+read -r -a condition_list <<< "$conditions"
 
 mkdir -p results/runs
 final_status=0
 
 for config in "${configs[@]}"; do
-  for condition in $conditions; do
+  config_name="$(basename "$config" .yaml)"
+  if grep -q 'file://./benchmark-provider.js' "$config"; then
+    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    run_file="results/runs/${stamp}-$(sanitize "$config_name")-matrix.json"
+    matrix_config="$(dirname "$config")/.${config_name}-${stamp}-$$.matrix.yaml"
+    matrix_args=("$repo_root/scripts/build-promptfoo-matrix.js" "$config" "$matrix_config")
+    for condition in "${condition_list[@]}"; do
+      matrix_args+=(--condition "$condition")
+    done
     for model in "${model_list[@]}"; do
       model="$(echo "$model" | xargs)"
-      stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-      config_name="$(basename "$config" .yaml)"
-      run_file="results/runs/${stamp}-$(sanitize "$config_name")-${condition}-$(sanitize "${model:-default}").json"
-
-      outputs=()
-      while IFS= read -r output; do
-        [[ -n "$output" ]] && outputs+=("$output")
-      done < <(config_output_paths "$config")
-      outputs+=("$run_file")
-
-      args=(eval -c "$config")
-      [[ -n "$repeat" ]] && args+=(--repeat "$repeat")
-      args+=(-o "${outputs[@]}")
-
-      set +e
-      EVAL_CONDITION="$condition" EVAL_MODEL="$model" \
-        run_promptfoo "Running $config_name (condition=$condition, model=${model:-default})" "${args[@]}"
-      status=$?
-      set -e
-
-      echo "    results: evals/promptfoo/$run_file (exit $status)"
-      if [[ $status -ne 0 && $final_status -eq 0 ]]; then
-        final_status=$status
-      fi
+      matrix_args+=(--model "$model")
     done
-  done
+
+    if ! node "${matrix_args[@]}"; then
+      rm -f -- "$matrix_config"
+      if [[ $final_status -eq 0 ]]; then final_status=1; fi
+      continue
+    fi
+
+    outputs=()
+    while IFS= read -r output; do
+      [[ -n "$output" ]] && outputs+=("$output")
+    done < <(config_output_paths "$config")
+    outputs+=("$run_file")
+
+    args=(eval -c "$matrix_config")
+    [[ -n "$repeat" ]] && args+=(--repeat "$repeat")
+    args+=(-o "${outputs[@]}")
+
+    set +e
+    run_promptfoo "Running $config_name (models=${#model_list[@]}, conditions=${conditions})" "${args[@]}"
+    status=$?
+    set -e
+
+    rm -f -- "$matrix_config"
+    echo "    results: evals/promptfoo/$run_file (exit $status)"
+    if [[ $status -ne 0 && $final_status -eq 0 ]]; then
+      final_status=$status
+    fi
+  else
+    for condition in "${condition_list[@]}"; do
+      for model in "${model_list[@]}"; do
+        model="$(echo "$model" | xargs)"
+        stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+        run_file="results/runs/${stamp}-$(sanitize "$config_name")-${condition}-$(sanitize "${model:-default}").json"
+
+        outputs=()
+        while IFS= read -r output; do
+          [[ -n "$output" ]] && outputs+=("$output")
+        done < <(config_output_paths "$config")
+        outputs+=("$run_file")
+
+        args=(eval -c "$config")
+        [[ -n "$repeat" ]] && args+=(--repeat "$repeat")
+        args+=(-o "${outputs[@]}")
+
+        set +e
+        EVAL_CONDITION="$condition" EVAL_MODEL="$model" \
+          run_promptfoo "Running $config_name (condition=$condition, model=${model:-default})" "${args[@]}"
+        status=$?
+        set -e
+
+        echo "    results: evals/promptfoo/$run_file (exit $status)"
+        if [[ $status -ne 0 && $final_status -eq 0 ]]; then
+          final_status=$status
+        fi
+      done
+    done
+  fi
 done
 
 exit "$final_status"
