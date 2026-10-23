@@ -6,13 +6,13 @@ const { spawnSync } = require('child_process');
 const { isDeepStrictEqual } = require('util');
 const { addSubtractImplementation } = require('./scenario-helpers');
 
-function command(dir, executable, args) {
+function command(dir, executable, args, options = {}) {
 	const result = spawnSync(executable, args, {
 		cwd: dir,
 		encoding: 'utf8',
 		timeout: 90_000,
 		maxBuffer: 8 * 1024 * 1024,
-		env: { ...process.env, GOWORK: 'off', GOFLAGS: '' },
+		env: { ...(options.env || process.env), GOWORK: 'off', GOFLAGS: '' },
 	});
 	return {
 		command: [executable, ...args],
@@ -47,8 +47,8 @@ function snapshot(dir, relative = '') {
 	return files;
 }
 
-function gitEvidence(dir) {
-	const git = (...args) => command(dir, 'git', args);
+function gitEvidence(dir, options = {}) {
+	const git = (...args) => command(dir, 'git', args, options);
 	const logsDir = path.join(dir, '.git', 'logs');
 	return {
 		head: git('rev-parse', 'HEAD'),
@@ -63,11 +63,11 @@ function gitEvidence(dir) {
 	};
 }
 
-function goTests(dir, pattern) {
+function goTests(dir, pattern, options = {}) {
 	return command(dir, 'go', [
 		'test', '-json', '-count=1', '-timeout=30s',
 		...(pattern ? ['-run', pattern] : []), './...',
-	]);
+	], options);
 }
 
 function events(result) {

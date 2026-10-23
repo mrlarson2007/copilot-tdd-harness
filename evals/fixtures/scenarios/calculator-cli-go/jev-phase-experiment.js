@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const { createHash } = require('crypto');
 const { runCopilotAgent } = require('../agent-runner');
-const { command, snapshot, gitEvidence, goTests } = require('./red-evaluator');
+const verification = require('./red-evaluator');
+const { snapshot } = verification;
 const { scorePhase } = require('../../../promptfoo/jev-scorer');
 
 const phases = ['red', 'green', 'commit', 'refactor'];
@@ -16,6 +17,23 @@ const boundaries = {
 	commit: 'Commit the verified GREEN test and production change together if GREEN has not already committed. If it already committed, inspect and report that commit without creating a duplicate. Do not refactor.',
 	refactor: 'Evaluate whether local refactoring is warranted after the GREEN commit. A justified no-op is acceptable. If refactoring is performed, verify it and commit it before stopping. Do not add a new behavior or test.',
 };
+
+function fixtureEnvironment() {
+	const allowed = [
+		'PATH', 'Path', 'SystemRoot', 'WINDIR', 'HOME', 'USERPROFILE', 'TMP', 'TEMP', 'TMPDIR',
+		'GOCACHE', 'GOPATH', 'GOROOT', 'GOTOOLCHAIN', 'CGO_ENABLED', 'LANG', 'LC_ALL',
+	];
+	return Object.fromEntries(allowed.filter((name) => process.env[name] !== undefined)
+		.map((name) => [name, process.env[name]]));
+}
+
+function command(dir, executable, args) {
+	return verification.command(dir, executable, args, { env: fixtureEnvironment() });
+}
+
+function goTests(dir) {
+	return verification.goTests(dir, undefined, { env: fixtureEnvironment() });
+}
 
 function setup(workspaceDir) {
 	for (const skill of [...phases.map((phase) => `tdd-${phase}`), 'tdd-test-run']) {
@@ -51,7 +69,7 @@ function state(workspaceDir) {
 		else if (/^[^/]+\.go$/.test(name)) production[name] = content;
 		else if (['go.mod', '.github/instructions/tdd-patterns.instructions.md'].includes(name)) configuration[name] = content;
 	}
-	const git = gitEvidence(workspaceDir);
+	const git = verification.gitEvidence(workspaceDir, { env: fixtureEnvironment() });
 	return {
 		tests, production, configuration, manifest,
 		git: {

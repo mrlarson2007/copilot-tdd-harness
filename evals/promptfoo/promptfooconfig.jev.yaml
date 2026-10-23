@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Opt-in Jev judgments over real TDD phase boundaries; Promptfoo records, not grades.
+
+prompts:
+  - Run the calculator subtract TDD phase experiment and record Jev judgments.
+
+providers:
+  - id: file://./benchmark-provider.js
+    label: jev-tdd-phase-recorder
+
+evaluateOptions:
+  maxConcurrency: 1
+
+tests:
+  - description: calculator-cli-go Jev RED GREEN COMMIT REFACTOR judgments
+    vars:
+      fixtureId: calculator-cli-go
+      baselineId: clean
+      scenarioId: jev-phase-subtract
+      scenarioFamily: phase-experiment
+      runMode: jev-phase-experiment
+      fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/jev-phase-experiment.js
+      artifactOutputDir: ./results/jev-artifacts
+    # Deliberately no assertions or pass thresholds: inspect output.status and phases.
+
+outputPath:
+  - results/promptfoo-jev.json

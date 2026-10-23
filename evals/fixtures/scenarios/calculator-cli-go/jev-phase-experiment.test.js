@@ -9,7 +9,7 @@ const { execFileSync } = require('child_process');
 const { appendSubtractTest, addSubtractImplementation } = require('./scenario-helpers');
 const { runExperiment } = require('./jev-phase-experiment');
 
-test('captures each real phase boundary and records Jev outputs rather than inferring phases from commits', async (t) => {
+function workspace(t) {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-phase-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	fs.cpSync(path.resolve(__dirname, '../../projects/calculator-cli-go/clean'), dir, { recursive: true });
@@ -20,6 +20,11 @@ test('captures each real phase boundary and records Jev outputs rather than infe
 	git('config', 'commit.gpgsign', 'false');
 	git('add', '.');
 	git('commit', '--quiet', '-m', 'baseline');
+	return { dir, git };
+}
+
+test('captures each real phase boundary and records Jev outputs rather than inferring phases from commits', async (t) => {
+	const { dir, git } = workspace(t);
 	const calls = [];
 	const judged = [];
 	const result = await runExperiment({
@@ -36,7 +41,8 @@ test('captures each real phase boundary and records Jev outputs rather than infe
 				git('add', 'main.go', 'main_test.go');
 				git('commit', '--quiet', '-m', 'Add subtract command');
 			}
-			return { ok: true, exitCode: 0, output: `<phase_result>{"phase":"${phase}","status":"ok"}</phase_result>` };
+			const contract = phase === 'refactor' ? 'cycle_result' : `${phase}_result`;
+			return { ok: true, exitCode: 0, output: `<phase_result>{"contract":"${contract}","phase":"${phase}","status":"ok"}</phase_result>` };
 		},
 		judge: async ({ phase, evidence }) => {
 			judged.push({ phase, evidence });
@@ -55,4 +61,26 @@ test('captures each real phase boundary and records Jev outputs rather than infe
 	assert.equal(result.summary.status, 'complete');
 	assert.equal('pass' in result.summary, false);
 	assert.equal(result.artifacts.phases.length, 4);
+});
+
+test('fixture verification cannot read the Jev API credential from its environment', async (t) => {
+	const { dir } = workspace(t);
+	const original = process.env.TYPESAFE_API_KEY;
+	process.env.TYPESAFE_API_KEY = 'synthetic-service-credential';
+	t.after(() => {
+		if (original === undefined) delete process.env.TYPESAFE_API_KEY;
+		else process.env.TYPESAFE_API_KEY = original;
+	});
+	const result = await runExperiment({ workspaceDir: dir, fixtureId: 'calculator-cli-go' }, {
+		runAgent: async () => {
+			appendSubtractTest(dir);
+			fs.writeFileSync(path.join(dir, 'env_test.go'), `package main
+import ("fmt"; "os")
+func init() { fmt.Println("fixture environment: " + os.Getenv("TYPESAFE_API_KEY")) }
+`);
+			return { ok: true, exitCode: 0, output: '<phase_result>{"contract":"red_result","status":"escalate"}</phase_result>' };
+		},
+		judge: async () => ({ status: 'scored', response: {} }),
+	});
+	assert.equal(JSON.stringify(result).includes('synthetic-service-credential'), false);
 });
