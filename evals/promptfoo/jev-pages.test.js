@@ -322,3 +322,37 @@ test('WhenRunMetadataIsHostileOrUnavailable_ShouldOmitUnsafeLinksAndGenerateTime
 		}
 	}
 });
+
+test('WhenViewingRecordedResults_ShouldDistinguishVisiblePhaseScorecardsFromSanitizedExecutionRows', (t) => {
+	const files = workspace(t);
+	const row = execution();
+	row.phases.red.response.answers.focused_test.score = 1.25;
+	row.phases.red.response.answers.meaningful_failure.noul = 0.125;
+	const unavailable = execution();
+	delete unavailable.phases.green.response.answers.minimal_change;
+	unavailable.fixtureId = 'PRIVATE_FIXTURE';
+	unavailable.phases.red.response.extra = '<script>PRIVATE_RESPONSE</script>';
+	writeRows(files, [row, unavailable]);
+	assert.equal(run(files).status, 0);
+	const scorecard = fs.readFileSync(path.join(files.output, 'jev.html'), 'utf8');
+	const visible = scorecard.match(/<table id="jev-scorecard-1">[\s\S]*?<\/table>/)?.[0];
+	assert.ok(visible, 'the scorecard must expose a compact table outside expandable details');
+	assert.doesNotMatch(visible, /<details/);
+	assert.match(visible, /focused_test: 1.25/);
+	assert.match(visible, /meaningful_failure: 0.125/);
+	assert.match(visible, /scope_preserved: 0/);
+	assert.match(visible, /focused_test: 0.75/);
+	for (const phase of phases) assert.match(visible, new RegExp(`<th scope="row">${phase.toUpperCase()}</th>`));
+	assert.ok(scorecard.indexOf(visible) < scorecard.indexOf('<details>'));
+	const other = scorecard.match(/<table id="jev-scorecard-2">[\s\S]*?<\/table>/)?.[0];
+	assert.match(other, /minimal_change: unavailable/);
+	const promptfoo = fs.readFileSync(path.join(files.output, 'promptfoo.html'), 'utf8');
+	assert.match(promptfoo, /Sanitized static view; not the native Promptfoo viewer/);
+	assert.match(promptfoo, /<table id="promptfoo-results">/);
+	assert.equal((promptfoo.match(/<tr data-result="\d+">/g) || []).length, 2);
+	assert.match(promptfoo, /<tr data-result="1"><th scope="row">Execution 1<\/th><td>complete<\/td><td>collected<\/td><td>calculator-cli-go<\/td><td>jev-phase-subtract<\/td>/);
+	assert.match(promptfoo, /<tr data-result="2"><th scope="row">Execution 2<\/th><td>complete<\/td><td>collected<\/td><td>unavailable<\/td><td>jev-phase-subtract<\/td>/);
+	assert.equal((promptfoo.match(/<summary>Sanitized typed response<\/summary>/g) || []).length, 2);
+	assert.doesNotMatch(promptfoo, /jev-scorecard-|PRIVATE_|<script/);
+	assert.doesNotMatch(scorecard, /promptfoo-results/);
+});

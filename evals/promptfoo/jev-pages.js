@@ -63,7 +63,7 @@ function projectExecution(execution) {
 					const value = validType ? number(answer[question.type],
 						question.type === 'score' ? question.criteria.length - 1 : 1) : 'unavailable';
 					return {
-						id, instructions: question.instructions, criteria: question.criteria,
+						id, type: question.type, instructions: question.instructions, criteria: question.criteria,
 						score: question.type === 'score' ? value : 'unavailable',
 						noul: question.type === 'noul' ? value : 'unavailable',
 						confidence: value !== 'unavailable' ? number(answer.confidence, 1) : 'unavailable',
@@ -75,7 +75,20 @@ function projectExecution(execution) {
 	};
 }
 
-function executionDetails(execution, index) {
+function phaseScorecard(execution, index) {
+	const rows = execution.phases.map((judgment) => {
+		const values = (field, type) => judgment.questions
+			.filter((question) => !type || question.type === type)
+			.map((question) => `${escapeHtml(question.id)}: ${escapeHtml(question[field])}`).join('<br>');
+		return `<tr><th scope="row">${escapeHtml(judgment.phase.toUpperCase())}</th><td>${escapeHtml(judgment.status)}</td>
+<td>${values('score', 'score')}</td><td>${values('noul', 'noul')}</td><td>${values('confidence')}</td></tr>`;
+	}).join('');
+	return `<table id="jev-scorecard-${index + 1}"><caption>Per-phase recorded numeric judgments</caption>
+<thead><tr><th scope="col">Phase</th><th scope="col">Status</th><th scope="col">Raw score (0–2)</th>
+<th scope="col">Noul yes probability (0–1)</th><th scope="col">Confidence (0–1)</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function executionDetails(execution, index, showScorecard = false) {
 	const details = execution.phases.map((judgment) => {
 		const questions = judgment.questions.map((question) => {
 			const criteria = (question.criteria || []).map((criterion, value) =>
@@ -93,7 +106,18 @@ function executionDetails(execution, index) {
 	}).join('');
 	return `<article><h2>Execution ${index + 1}</h2>
 <p>Execution status: ${escapeHtml(execution.status)} · Collection status: ${escapeHtml(execution.collectionStatus)}</p>
-<p>Fixture: ${escapeHtml(execution.fixture)} · Scenario: ${escapeHtml(execution.scenario)}</p>${details}</article>`;
+<p>Fixture: ${escapeHtml(execution.fixture)} · Scenario: ${escapeHtml(execution.scenario)}</p>
+${showScorecard ? phaseScorecard(execution, index) : ''}${details}</article>`;
+}
+
+function executionTable(executions) {
+	const rows = executions.map((execution, index) =>
+		`<tr data-result="${index + 1}"><th scope="row">Execution ${index + 1}</th><td>${escapeHtml(execution.status)}</td><td>${escapeHtml(execution.collectionStatus)}</td><td>${escapeHtml(execution.fixture)}</td><td>${escapeHtml(execution.scenario)}</td>
+<td><details><summary>Sanitized typed response</summary>${executionDetails(execution, index)}</details></td></tr>`).join('');
+	return `<p>Sanitized static view; not the native Promptfoo viewer.</p>
+<table id="promptfoo-results"><caption>Recorded Promptfoo execution results</caption>
+<thead><tr><th scope="col">Result</th><th scope="col">Execution status</th><th scope="col">Collection status</th>
+<th scope="col">Fixture</th><th scope="col">Scenario</th><th scope="col">Typed response</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function generatePages(input, output, env = process.env) {
@@ -112,11 +136,11 @@ function generatePages(input, output, env = process.env) {
 	const summary = `<p>Status: complete</p><p>Complete executions: ${complete} · Incomplete executions: ${executions.length - complete}</p>`;
 	const explanation = '<p>Scores are recorded values, not pass/fail verdicts. Fractional scores remain raw; noul is the probability of yes, not a criteria score. Unavailable values are never invented.</p>'
 		+ '<p>Complete execution does not imply compliance or a favorable judgment. Assertion-free execution is not a compliance check.</p>';
-	const details = executions.map(executionDetails).join('');
+	const scorecards = executions.map((execution, index) => executionDetails(execution, index, true)).join('');
 	const pages = {
 		'index.html': page('Recorded evaluation overview', runMetadata, summary),
-		'jev.html': page('Recorded Jev scorecard', runMetadata, summary + explanation + details),
-		'promptfoo.html': page('Promptfoo execution results', runMetadata, summary + explanation + details),
+		'jev.html': page('Recorded Jev scorecard', runMetadata, summary + explanation + scorecards),
+		'promptfoo.html': page('Promptfoo execution results', runMetadata, summary + explanation + executionTable(executions)),
 	};
 	if (fs.existsSync(output)) {
 		if (!fs.lstatSync(output).isDirectory()) throw new Error('Invalid output directory');
