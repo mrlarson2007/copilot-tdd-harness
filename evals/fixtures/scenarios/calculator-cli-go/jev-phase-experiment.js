@@ -114,6 +114,28 @@ function summary(input, records, status) {
 	};
 }
 
+function canAdvance(phase, evidence) {
+	const contract = phase === 'refactor' ? 'cycle_result' : `${phase}_result`;
+	if (evidence.phaseResult?.contract !== contract || evidence.phaseResult.status !== 'ok') return false;
+	const result = evidence.testResults[0];
+	if (result.error || result.signal) return false;
+	if (phase === 'red') {
+		return result.exitCode === 1 && result.output.split('\n').some((line) => {
+			try {
+				const event = JSON.parse(line);
+				return event.Action === 'fail' && typeof event.Test === 'string';
+			} catch { return false; }
+		}) && !/panic:|test timed out|DATA RACE/.test(result.output);
+	}
+	if (result.exitCode !== 0) return false;
+	if (phase === 'commit' || phase === 'refactor') {
+		return Array.isArray(evidence.commits) && evidence.commits.length > 0
+			&& evidence.afterVerification.git.status.exitCode === 0
+			&& evidence.afterVerification.git.status.output.trim() === '';
+	}
+	return true;
+}
+
 async function runExperiment(input, dependencies = {}) {
 	const runAgent = dependencies.runAgent || runCopilotAgent;
 	const judge = dependencies.judge || scorePhase;
@@ -169,6 +191,10 @@ Previous phase result: ${JSON.stringify(records.at(-1)?.evidence.phaseResult || 
 		before = afterVerification;
 		if (!agent.ok || agent.exitCode !== 0) {
 			status = 'agent-failed';
+			break;
+		}
+		if (!canAdvance(phase, evidence)) {
+			status = 'phase-failed';
 			break;
 		}
 		if (judgment.status !== 'scored') {

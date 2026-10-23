@@ -1,10 +1,11 @@
 # Promptfoo Evals
 
-This folder contains three benchmark modes:
+This folder contains these benchmark modes:
 
 - `promptfooconfig.yaml` for fast scripted micro-cycles
 - `promptfooconfig.extended.yaml` for opt-in longer drift checks
 - `promptfooconfig.red.yaml` for an independent, real-agent RED-only evaluation
+- `promptfooconfig.jev.yaml` for experimental Jev scoring at each TDD phase boundary
 
 ## Real Agent Replays
 
@@ -115,3 +116,114 @@ import reformatting is deliberately rejected. The existing RED skill references
 core assertion/anti-pattern guidance without naming additional core asset files;
 the eval loads the actual available skills and assets without inventing them.
 Unavailable/unauthenticated Copilot is a failed live run, never a passing result.
+
+## Jev Phase-Scoring Experiment
+
+This opt-in experiment runs the real RED, GREEN, COMMIT, and REFACTOR skills in
+separate Copilot CLI invocations over one disposable calculator workspace. It
+captures each boundary **before** starting the next phase; it does not infer
+phase artifacts from final commit history. The agent writes the positive-case
+test, not a script. The existing standard, extended, and deterministic RED-only
+evals are unchanged.
+
+The installed TypeSafe skill is in `.agents/skills/typesafe-ai/SKILL.md`. The
+pinned `@typesafe-ai/sdk` dependency is in `.promptfoo-tooling`; Jev itself is a
+hosted model, not a local model installation. The integration uses the SDK's
+typed `systemOne` interface with `score` and `noul` questions, batching independent
+questions for each phase into one request.
+
+### Run
+
+Requires Node.js **22 or later**, Git, Go, authenticated Copilot CLI, and a
+TypeSafe API key supplied securely as `TYPESAFE_API_KEY` in the environment.
+Install the evaluation dependencies using the existing tooling:
+
+```bash
+npm --prefix /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/.promptfoo-tooling ci
+```
+
+**Data boundary:** Jev receives the public disposable fixture's before/after
+tests and production source, configuration, file hashes/modes, diffs, test
+output, commit messages/diffs/refs, phase contract JSON, and preceding phase
+results. Do not use this experiment for sensitive/private source or fixtures
+containing secrets. Raw agent transcripts remain local, not in Jev state. The
+Jev key is removed from the agent environment; evaluator Go/Git commands use an
+allowlisted environment without service credentials. This is not a sandbox
+against hostile generated code.
+
+Explicitly opt into uploading **only non-sensitive public fixture evidence**:
+
+```bash
+TDD_JEV_ALLOW_PUBLIC_FIXTURE_UPLOAD=1 PROMPTFOO_CACHE_ENABLED=false \
+bash /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/scripts/run-evals.sh \
+  --config /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/promptfoo/promptfooconfig.jev.yaml
+```
+
+Do not place an API key in the config, command line, or committed files. The
+default model is `jev-latest`; `TYPESAFE_DEFAULT_MODEL` can select another model
+available to your account. Requests use the official TypeSafe endpoint, a
+30-second per-request timeout, no automatic retries, and no SDK body logging.
+No live request is made when the key or upload opt-in is missing.
+
+### What Jev judges
+
+| Phase | Context | Judgments |
+| --- | --- | --- |
+| RED | Before/after tests and production, actual failing suite output, phase JSON, Git evidence | One meaningful focused test; intended assertion failure rather than build/timeout failure; unchanged production/existing assertions; no commit |
+| GREEN | RED context, production/test diff, actual suite output, phase JSON, any immediate GREEN commit | Smallest behavior needed by the test; no weakened tests; verified passing suite; coherent commit scope |
+| COMMIT | GREEN state, cumulative test+production diff, actual commits/messages, suite output, phase JSON | Atomic test+production commit; descriptive message; no scope creep or leftover changes |
+| REFACTOR | Committed GREEN state, refactor diff, tests/output, phase JSON and commit evidence | Justified local improvement or justified no-op; preserved behavior/assertions; committed changes if refactored |
+
+Scores use a three-level rubric (0–2); `noul` answers are probabilities of yes
+(0–1), not pass/fail flags. Raw responses preserve model, answers, probabilities,
+confidence where the primitive supplies it, and token usage. No weighted average
+or arbitrary pass threshold is applied. These judgments are experimental and
+need calibration against labeled examples; typed answers do not guarantee
+truth. The deterministic RED-only evaluator remains available separately.
+
+The runner only gates execution prerequisites: a valid successful phase
+contract, behavioral test failure in RED, passing tests afterward, and committed
+clean state before/after REFACTOR. It records the unsuccessful phase before
+stopping. These safety gates are not substitutes for Jev's semantic scoring.
+GREEN may commit immediately as required by the real skill; COMMIT then reports
+that commit instead of creating a duplicate. REFACTOR may explicitly do nothing.
+Evaluator-installed skill files are committed as scaffold **before** the
+measurement baseline and excluded from measured cycle commits.
+
+### Promptfoo only records
+
+There are deliberately **no Promptfoo assertions or grading thresholds** in this
+config. A single cycle's provider output contains `phases.red`,
+`phases.green`, `phases.commit`, and `phases.refactor`, each with the raw Jev
+response, request/rubric, timing, and status. Inspect `output.status` and each
+phase's status; a green Promptfoo row without assertions does **not** mean TDD
+compliance. `complete` means all four phases were executed and scored, not that
+their judgments were favorable. `unavailable`, `agent-failed`, `phase-failed`,
+`judge-unavailable`, `invalid-response`, and `not-run` never become fabricated
+scores. The recorder stops on an agent or judging service failure.
+
+Before cleanup, the existing provider writes the output plus baseline,
+per-phase agent transcript, before/after snapshots, actual test commands and
+results, phase JSON, Git evidence, and Jev requests/responses under:
+
+`evals/promptfoo/results/jev-artifacts/calculator-cli-go/jev-phase-subtract/<run-id>/`
+
+The Promptfoo report is `evals/promptfoo/results/promptfoo-jev.json`. These
+generated results are ignored by Git.
+
+### Deterministic checks and live limitations
+
+```bash
+node --test /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/promptfoo/jev-scorer.test.js \
+  /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/fixtures/scenarios/calculator-cli-go/jev-phase-experiment.test.js
+```
+
+Unit tests use explicitly synthetic agents/Jev responses, real Go and Git, and
+the installed TypeSafe SDK with a mocked HTTP transport. They test wiring and
+error handling, not Jev's judging accuracy. Live execution needs both Copilot
+and TypeSafe access; missing credentials must be reported as unavailable, not
+claimed as a passed evaluation.
+
+During implementation, the live TypeSafe docs hostname could not resolve.
+The public upstream skill, package README, and installed SDK declarations were
+used instead; the SDK request shapes are checked by the transport test.

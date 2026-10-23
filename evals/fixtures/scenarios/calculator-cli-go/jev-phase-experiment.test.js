@@ -84,3 +84,39 @@ func init() { fmt.Println("fixture environment: " + os.Getenv("TYPESAFE_API_KEY"
 	});
 	assert.equal(JSON.stringify(result).includes('synthetic-service-credential'), false);
 });
+
+test('records an escalated RED result but never transitions into GREEN', async (t) => {
+	const { dir } = workspace(t);
+	let calls = 0;
+	const result = await runExperiment({ workspaceDir: dir, fixtureId: 'calculator-cli-go' }, {
+		runAgent: async () => {
+			if (++calls === 1) appendSubtractTest(dir);
+			return { ok: true, exitCode: 0, output: '<phase_result>{"contract":"red_result","status":"escalate"}</phase_result>' };
+		},
+		judge: async () => ({ status: 'scored', response: {} }),
+	});
+	assert.equal(calls, 1);
+	assert.equal(result.summary.status, 'phase-failed');
+	assert.equal(result.summary.phases.red.status, 'scored');
+	assert.equal(result.summary.phases.green.status, 'not-run');
+	assert.equal(result.artifacts.phases[0].evidence.phaseResult.status, 'escalate');
+});
+
+test('a failing GREEN verification never advances to COMMIT or REFACTOR despite a claimed success', async (t) => {
+	const { dir } = workspace(t);
+	const calls = [];
+	const result = await runExperiment({ workspaceDir: dir, fixtureId: 'calculator-cli-go' }, {
+		runAgent: async (_dir, _prompt, options) => {
+			const phase = options.progressLabel.replace('jev-', '');
+			calls.push(phase);
+			if (phase === 'red') appendSubtractTest(dir);
+			return { ok: true, exitCode: 0,
+				output: `<phase_result>{"contract":"${phase}_result","status":"ok"}</phase_result>` };
+		},
+		judge: async () => ({ status: 'scored', response: {} }),
+	});
+	assert.deepEqual(calls, ['red', 'green']);
+	assert.equal(result.summary.status, 'phase-failed');
+	assert.equal(result.summary.phases.commit.status, 'not-run');
+	assert.equal(result.artifacts.phases[1].evidence.testResults[0].exitCode, 1);
+});
