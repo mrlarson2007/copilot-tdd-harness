@@ -121,7 +121,8 @@ function generatePages(input, output, env = process.env) {
 		if (!fs.lstatSync(output).isDirectory()) throw new Error('Invalid output directory');
 		for (const name of fs.readdirSync(output)) {
 			const stat = fs.lstatSync(path.join(output, name));
-			if (!Object.hasOwn(pages, name) || !stat.isFile() || stat.nlink !== 1) {
+			if (!Object.hasOwn(pages, name) || !stat.isFile() || stat.nlink !== 1
+				|| fs.realpathSync(path.join(output, name)) === fs.realpathSync(input)) {
 				throw new Error('Invalid output contents');
 			}
 		}

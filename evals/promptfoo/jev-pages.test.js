@@ -229,3 +229,63 @@ test('WhenJudgmentValuesAreMalformedNonfiniteOrOutsideCanonicalRanges_ShouldShow
 	assert.match(html, /<td>2<\/td><td>unavailable<\/td><td>unavailable<\/td><td>recorded<\/td>/);
 	assert.match(html, /<td>unavailable<\/td><td>1<\/td><td>unavailable<\/td><td>recorded<\/td>/);
 });
+
+test('WhenSourceContainsSensitiveFields_ShouldPublishOnlySafeProjectionWithoutEverOverwritingTheSource', (t) => {
+	const files = workspace(t);
+	const secret = 'PRIVATE_SENTINEL_<img src=x onerror=alert(1)>_"\'&';
+	const row = execution();
+	row.fixtureId = secret;
+	row.scenarioId = secret;
+	row.metadata = { secret };
+	row.state = secret;
+	row.transcript = secret;
+	row.path = secret;
+	row.error = secret;
+	row.phases[secret] = { status: secret };
+	for (const phase of phases) {
+		const judgment = row.phases[phase];
+		judgment.phase = secret;
+		judgment.request = { state: secret, questions: { [secret]: { instructions: secret, criteria: [secret] } } };
+		judgment.error = { message: secret };
+		judgment.response.model = secret;
+		judgment.response.metadata = { secret };
+		judgment.response.usage.secret = secret;
+		judgment.response.answers[secret] = { type: 'score', score: 2 };
+		for (const answer of Object.values(judgment.response.answers)) {
+			answer.evidence = secret;
+			answer.explanation = secret;
+			answer.transcript = secret;
+		}
+	}
+	writeRows(files, [execution(), row]);
+	const raw = JSON.parse(fs.readFileSync(files.input));
+	raw.metadata = { secret };
+	raw.results.stats = { description: secret };
+	for (const item of raw.results.results) {
+		item.provider = { id: secret };
+		item.prompt = secret;
+		item.vars = { secret };
+		item.error = secret;
+		item.response.error = secret;
+		item.gradingResult = { reason: secret };
+	}
+	fs.writeFileSync(files.input, JSON.stringify(raw));
+	const original = fs.readFileSync(files.input);
+	assert.equal(run(files).status, 0);
+	assert.deepEqual(fs.readFileSync(files.input), original);
+	for (const name of ['index.html', 'jev.html', 'promptfoo.html']) {
+		const html = fs.readFileSync(path.join(files.output, name), 'utf8');
+		assert.doesNotMatch(html, /PRIVATE_SENTINEL|onerror|&lt;img|<img|never-publish-model/);
+	}
+	assert.match(fs.readFileSync(path.join(files.output, 'jev.html'), 'utf8'), /Fixture: unavailable · Scenario: unavailable/);
+	fs.rmSync(files.output, { recursive: true });
+	fs.mkdirSync(files.output);
+	for (const name of ['index.html', 'jev.html', 'promptfoo.html']) {
+		const colliding = { ...files, input: path.join(files.output, name) };
+		fs.writeFileSync(colliding.input, original);
+		assert.equal(run(colliding).status, 1, 'must reject a source file that would be overwritten by a generated page');
+		assert.deepEqual(fs.readFileSync(colliding.input), original);
+		assert.deepEqual(fs.readdirSync(files.output), [name]);
+		fs.rmSync(colliding.input);
+	}
+});
