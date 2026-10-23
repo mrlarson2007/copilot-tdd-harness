@@ -11,7 +11,7 @@ function buildMatrixConfig(source, models, conditions) {
     throw new Error('Invalid Promptfoo matrix configuration');
   }
 
-  const providerSection = /^providers:\r?\n[\s\S]*?(?=^tests:\s*$)/m;
+  const providerSection = /^providers:\r?\n[\s\S]*?(?=^[^\s#-][^:\r\n]*:|(?![\s\S]))/m;
   if (!providerSection.test(source)) throw new Error('Promptfoo configuration has no providers section');
 
   const providers = models.flatMap((model) => conditions.map((condition) => {
