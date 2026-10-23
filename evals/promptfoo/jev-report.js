@@ -69,30 +69,19 @@ if (!fs.existsSync(input)) {
 				}
 				const execution = entry.response.output;
 				const phases = isObject(execution.phases) ? execution.phases : {};
-				return [
-					`Revision: ${display(execution.revision)}`,
-					'',
-					`Fixture: ${display(execution.fixtureId)}`,
-					'',
-					`Scenario: ${display(execution.scenarioId)}`,
-					'',
-					`Execution status: ${display(execution.status)}`,
-					'',
-					`Collection status: ${display(execution.collectionStatus)}`,
-					'',
-					'| Phase | Status | Raw score (0–2) | Noul yes probability (0–1) |',
-					'| --- | --- | --- | --- |',
-					...phaseNames.map((phase) =>
-						`| ${phase.toUpperCase()} | ${display(phases[phase]?.status)} | unavailable | unavailable |`),
-					'',
-					...phaseNames.map((phase) => {
+				const scorecard = [];
+				const disclosures = phaseNames.map((phase) => {
 						const judgment = isObject(phases[phase]) ? phases[phase] : {};
+						const values = { score: [], noul: [] };
+						const addScorecardRow = () => scorecard.push(
+							`| ${phase.toUpperCase()} | ${display(judgment.status)} | ${values.score.join('<br>') || 'unavailable'} | ${values.noul.join('<br>') || 'unavailable'} |`);
 						const heading = `${phase.toUpperCase()}: status: ${display(judgment.status)}; model: ${display(judgment.response?.model)}`;
 						const usefulNumber = (value) => Number.isFinite(value) && value >= 0 ? value : 'unavailable';
 						const metrics = `elapsedMs: ${usefulNumber(judgment.elapsedMs)}; input_tokens: ${usefulNumber(judgment.response?.usage?.input_tokens)}; output_tokens: ${usefulNumber(judgment.response?.usage?.output_tokens)}`;
 						const answers = isObject(judgment.response?.answers) ? judgment.response.answers : {};
 						const supplied = isObject(judgment.request?.questions) ? judgment.request.questions : {};
 						if (!Object.keys(answers).length && !Object.keys(supplied).length && execution.status !== 'complete') {
+							addScorecardRow();
 							return `${heading}\n${metrics}\nQuestions: unavailable (answers absent).`;
 						}
 						const questions = questionsForPhase(phase);
@@ -114,6 +103,7 @@ if (!fs.existsSync(input)) {
 								if (!Number.isFinite(value)) diagnostic = 'answer missing or nonfinite';
 								else if (value < 0 || value > (question.type === 'score' ? 2 : 1)) diagnostic = 'answer out of range';
 							}
+							if (question) values[question.type].push(`${display(id)}: ${diagnostic ? 'unavailable' : answer[question.type]}`);
 							if (diagnostic) {
 								return `| ${display(id)} | ${label} | unavailable | unavailable | unavailable | unavailable: ${diagnostic} |`;
 							}
@@ -123,6 +113,7 @@ if (!fs.existsSync(input)) {
 							const confidence = Number.isFinite(answer.confidence) ? answer.confidence : 'unavailable';
 							return `| ${display(id)} | ${label} | ${score} | ${noul} | ${confidence} | recorded |`;
 						});
+						addScorecardRow();
 						return [
 							heading, metrics, '',
 							'| Question ID | Criteria labels / kind | Raw score (0–2) | Noul yes probability (0–1) | Confidence | Diagnostic |',
@@ -133,7 +124,23 @@ if (!fs.existsSync(input)) {
 						'<details>',
 						`<summary>${phaseNames[index].toUpperCase()} question details</summary>`,
 						'', details, '', '</details>', '',
-					].join('\n')),
+					].join('\n'));
+				return [
+					`Revision: ${display(execution.revision)}`,
+					'',
+					`Fixture: ${display(execution.fixtureId)}`,
+					'',
+					`Scenario: ${display(execution.scenarioId)}`,
+					'',
+					`Execution status: ${display(execution.status)}`,
+					'',
+					`Collection status: ${display(execution.collectionStatus)}`,
+					'',
+					'| Phase | Status | Raw score (0–2) | Noul yes probability (0–1) |',
+					'| --- | --- | --- | --- |',
+					...scorecard,
+					'',
+					...disclosures,
 				].join('\n');
 			}).join('\n\n');
 		}

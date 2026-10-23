@@ -411,3 +411,89 @@ test('WhenRecordedResultsAreUnavailableOrIncomplete_ShouldShowDiagnosticScorecar
 		}
 	}
 });
+
+test('WhenTypedJudgmentsAreRecorded_ShouldShowOnlyRawPerQuestionValuesBeforeSafeExpandableDetails', (t) => {
+	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-scorecard-test-'));
+	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const input = path.join(dir, 'recorded-results.json');
+	const output = path.join(dir, 'report.md');
+	const summary = path.join(dir, 'summary.md');
+	const privateText = 'PRIVATE_SCORECARD_SENTINEL';
+	const hostile = '</details><details open><summary>injected</summary>|[x](url)\n';
+	for (const complete of [false, true]) {
+		const phases = Object.fromEntries(['red', 'green', 'commit', 'refactor'].map((phase) => [
+			phase, {
+				status: 'scored', elapsedMs: 0,
+				request: { questions: questionsForPhase(phase), state: privateText },
+				response: {
+					model: hostile, usage: { input_tokens: 0, output_tokens: 8, extra: privateText },
+					answers: Object.fromEntries(Object.entries(questionsForPhase(phase)).map(([id, question]) => [
+						id, { type: question.type, [question.type]: question.type === 'score' ? 1.375 : 0.625,
+							confidence: 0.875, evidence: privateText },
+					])),
+				},
+				error: privateText,
+			},
+		]));
+		phases.red.response.answers.focused_test.score = 0;
+		phases.red.response.answers.meaningful_failure.noul = 0;
+		phases.red.response.answers.scope_preserved = { type: 'score', score: 2 };
+		phases.red.response.answers[hostile] = { type: 'score', score: 2, evidence: privateText };
+		phases.red.request.questions.focused_test.criteria = [privateText];
+		if (!complete) {
+			phases.green.status = 'unavailable';
+			phases.green.response.answers.minimal_change.score = 3;
+			phases.green.response.answers.tests_unchanged.noul = '0.9';
+			delete phases.commit.response.answers.message_quality;
+		}
+		const raw = JSON.stringify({ results: { results: [{ response: { output: {
+			revision: hostile, fixtureId: 'actual-fixture', scenarioId: 'actual-scenario',
+			status: complete ? 'complete' : 'incomplete', collectionStatus: complete ? 'collected' : 'interrupted',
+			phases, evidence: privateText, request: privateText, error: privateText,
+		} } }] } });
+		fs.writeFileSync(input, raw);
+		fs.writeFileSync(summary, 'Existing summary\n');
+		const result = spawnSync(process.execPath, [path.join(__dirname, 'jev-report.js'), input, output],
+			{ encoding: 'utf8', env: { ...process.env, GITHUB_STEP_SUMMARY: summary } });
+		assert.equal(result.error, undefined);
+		assert.equal(result.status, 0);
+		const report = fs.readFileSync(output, 'utf8');
+		assert.match(report, new RegExp(`^Status: ${complete ? 'complete' : 'incomplete'}$`, 'm'));
+		const [scorecard, ...details] = report.split('<details>');
+		assert.equal(details.length, 4, 'Metadata and question IDs cannot inject disclosures');
+		const rows = scorecard.split('\n').filter((line) => /^\| (RED|GREEN|COMMIT|REFACTOR) \|/.test(line));
+		assert.equal(rows.length, 4);
+		const escapedId = (id) => id.replaceAll('_', '\\_');
+		for (const [index, phase] of ['red', 'green', 'commit', 'refactor'].entries()) {
+			const expectedCells = { score: [], noul: [] };
+			for (const [id, question] of Object.entries(questionsForPhase(phase))) {
+				const answer = phases[phase].response.answers[id];
+				const valid = answer?.type === question.type && typeof answer[question.type] === 'number'
+					&& answer[question.type] <= (question.type === 'score' ? 2 : 1);
+				expectedCells[question.type].push(`${escapedId(id)}: ${valid ? answer[question.type] : 'unavailable'}`);
+			}
+			assert.equal(rows[index], `| ${phase.toUpperCase()} | ${phases[phase].status} | ${expectedCells.score.join('<br>')} | ${expectedCells.noul.join('<br>')} |`);
+			assert.ok(details[index].startsWith(`\n<summary>${phase.toUpperCase()} question details</summary>\n\n`));
+			assert.match(details[index], /elapsedMs: 0; input_tokens: 0; output_tokens: 8/);
+			assert.match(details[index], /\| Confidence \| Diagnostic \|/);
+			assert.match(details[index], /\| 0.875 \| recorded \|/);
+			for (const question of Object.values(questionsForPhase(phase))) {
+				for (const label of question.criteria || []) assert.ok(details[index].includes(label));
+			}
+		}
+		assert.match(details[0], /unavailable: answer or question type mismatch/);
+		assert.match(details[0], /unavailable: unknown question/);
+		if (!complete) {
+			assert.match(details[1], /unavailable: answer out of range/);
+			assert.match(details[1], /unavailable: answer missing or nonfinite/);
+			assert.match(details[2], /unavailable: answer absent or malformed/);
+		}
+		assert.ok(report.includes('&lt;/details&gt;&lt;details open&gt;&lt;summary&gt;injected&lt;/summary&gt;\\|\\[x\\]\\(url\\)'));
+		assert.equal((report.match(/<\/details>/g) || []).length, 4);
+		assert.doesNotMatch(scorecard, /Criteria labels|Confidence|elapsedMs:|recorded \|/);
+		assert.doesNotMatch(report + result.stdout + result.stderr,
+			/PRIVATE_SCORECARD_SENTINEL|<details open>|leaderboard|baseline|sample|average|threshold|grade|"(?:request|evidence|error)"\s*:/i);
+		assert.equal(fs.readFileSync(summary, 'utf8'), 'Existing summary\n' + report);
+		assert.equal(fs.readFileSync(input, 'utf8'), raw);
+	}
+});
