@@ -41,3 +41,13 @@ test('buildCopilotArgs omits the agent in the baseline condition', () => {
 
   assert.deepEqual(args, ['--prompt', 'Add subtract', '--allow-all-tools']);
 });
+
+test('buildCopilotArgs omits the agent when agentName is false', () => {
+  const args = buildCopilotArgs({
+    agentName: false,
+    prompt: 'Write one failing test',
+    runConfig: { model: 'gpt-5', condition: 'harness' },
+  });
+
+  assert.deepEqual(args, ['--model', 'gpt-5', '--prompt', 'Write one failing test', '--allow-all-tools']);
+});
