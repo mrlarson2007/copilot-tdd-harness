@@ -59,11 +59,14 @@ function projectExecution(execution) {
 				questions: Object.entries(questionsForPhase(phase)).map(([id, question]) => {
 					const answer = judgment.response?.answers?.[id];
 					const validType = answer?.type === question.type;
+					const value = validType ? number(answer[question.type],
+						question.type === 'score' ? question.criteria.length - 1 : 1) : 'unavailable';
 					return {
 						id, instructions: question.instructions, criteria: question.criteria,
-						score: question.type === 'score' && validType ? number(answer.score, question.criteria.length - 1) : 'unavailable',
-						noul: question.type === 'noul' && validType ? number(answer.noul, 1) : 'unavailable',
-						confidence: validType ? number(answer.confidence, 1) : 'unavailable',
+						score: question.type === 'score' ? value : 'unavailable',
+						noul: question.type === 'noul' ? value : 'unavailable',
+						confidence: value !== 'unavailable' ? number(answer.confidence, 1) : 'unavailable',
+						status: value !== 'unavailable' ? 'recorded' : 'unavailable',
 					};
 				}),
 			};
@@ -78,13 +81,13 @@ function executionDetails(execution, index) {
 				`<li>${value}: ${escapeHtml(criterion)}</li>`).join('');
 			return `<tr><th scope="row">${escapeHtml(question.id)}</th>
 <td>${escapeHtml(question.instructions)}${criteria ? `<ol start="0">${criteria}</ol>` : '<p>Noul yes probability</p>'}</td>
-<td>${escapeHtml(question.score)}</td><td>${escapeHtml(question.noul)}</td><td>${escapeHtml(question.confidence)}</td></tr>`;
+<td>${escapeHtml(question.score)}</td><td>${escapeHtml(question.noul)}</td><td>${escapeHtml(question.confidence)}</td><td>${escapeHtml(question.status)}</td></tr>`;
 		}).join('');
 		return `<details><summary>${escapeHtml(judgment.phase.toUpperCase())}: scored</summary>
 <p>Elapsed (ms): ${escapeHtml(judgment.elapsed)} · Input tokens: ${escapeHtml(judgment.inputTokens)} · Output tokens: ${escapeHtml(judgment.outputTokens)}</p>
 <table><caption>Recorded ${escapeHtml(judgment.phase.toUpperCase())} judgments</caption>
 <thead><tr><th scope="col">Question ID</th><th scope="col">Canonical question and criteria</th>
-<th scope="col">Raw score (0–2)</th><th scope="col">Noul yes probability (0–1)</th><th scope="col">Confidence (0–1)</th></tr></thead>
+<th scope="col">Raw score (0–2)</th><th scope="col">Noul yes probability (0–1)</th><th scope="col">Confidence (0–1)</th><th scope="col">Judgment status</th></tr></thead>
 <tbody>${questions}</tbody></table></details>`;
 	}).join('');
 	return `<article><h2>Execution ${index + 1}</h2>

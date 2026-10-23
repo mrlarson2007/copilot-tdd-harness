@@ -182,3 +182,50 @@ test('WhenAnyExecutionOrOutputBoundaryIsUnsafe_ShouldRejectBeforeChangingInputOr
 	fs.writeFileSync(path.join(files.output, 'raw.json'), 'must not publish');
 	assert.equal(run(files).status, 1, 'must not publish a directory containing other artifacts');
 });
+
+test('WhenJudgmentValuesAreMalformedNonfiniteOrOutsideCanonicalRanges_ShouldShowUnavailableWithoutInventingScores', (t) => {
+	const files = workspace(t);
+	const invalid = [null, false, '', '1', 'PRIVATE_NUMERIC_FIELD', {}, [], -0.1, 2.1, 'RAW_INFINITY', 'RAW_NEGATIVE_INFINITY'];
+	for (const [id, kind, maximum] of [['focused_test', 'score', 2], ['meaningful_failure', 'noul', 1]]) {
+		for (const value of [...invalid, maximum + 0.01]) {
+			const row = execution();
+			row.phases.red.response.answers[id] = { type: kind, [kind]: value, confidence: 0.5 };
+			row.phases.green.elapsedMs = -1;
+			row.phases.green.response.usage = { input_tokens: 'PRIVATE_TOKEN_FIELD', output_tokens: null };
+			writeRows(files, [row]);
+			fs.writeFileSync(files.input, fs.readFileSync(files.input, 'utf8')
+				.replaceAll('"RAW_INFINITY"', '1e999').replaceAll('"RAW_NEGATIVE_INFINITY"', '-1e999'));
+			const result = run(files);
+			assert.equal(result.status, 0, result.stderr);
+			for (const name of ['jev.html', 'promptfoo.html']) {
+				const html = fs.readFileSync(path.join(files.output, name), 'utf8');
+				const questionRow = html.match(new RegExp(`<tr><th scope="row">${id}</th>[\\s\\S]*?</tr>`))?.[0];
+				assert.ok(questionRow);
+				assert.match(questionRow, /<td>unavailable<\/td><td>unavailable<\/td><td>unavailable<\/td><td>unavailable<\/td>/);
+				assert.match(html, /Elapsed \(ms\): unavailable · Input tokens: unavailable · Output tokens: unavailable/);
+				assert.doesNotMatch(html, /PRIVATE_|Infinity|NaN/);
+			}
+		}
+	}
+	for (const answer of [undefined, [], 'PRIVATE_ANSWER', { type: 'noul', score: 1 },
+		{ type: 'PRIVATE_TYPE', score: 1 }, { type: 'score' }]) {
+		const row = execution();
+		row.phases.red.response.answers.focused_test = answer;
+		writeRows(files, [row]);
+		assert.equal(run(files).status, 0);
+		const html = fs.readFileSync(path.join(files.output, 'jev.html'), 'utf8');
+		assert.match(html.match(/<tr><th scope="row">focused_test<\/th>[\s\S]*?<\/tr>/)[0],
+			/<td>unavailable<\/td><td>unavailable<\/td><td>unavailable<\/td><td>unavailable<\/td>/);
+		assert.doesNotMatch(html, /PRIVATE_/);
+	}
+	const endpoints = execution();
+	endpoints.phases.red.response.answers.focused_test.score = 2;
+	endpoints.phases.red.response.answers.meaningful_failure.noul = 1;
+	endpoints.phases.red.response.answers.focused_test.confidence = 1.01;
+	endpoints.phases.red.response.answers.meaningful_failure.confidence = -1;
+	writeRows(files, [endpoints]);
+	assert.equal(run(files).status, 0);
+	const html = fs.readFileSync(path.join(files.output, 'jev.html'), 'utf8');
+	assert.match(html, /<td>2<\/td><td>unavailable<\/td><td>unavailable<\/td><td>recorded<\/td>/);
+	assert.match(html, /<td>unavailable<\/td><td>1<\/td><td>unavailable<\/td><td>recorded<\/td>/);
+});
