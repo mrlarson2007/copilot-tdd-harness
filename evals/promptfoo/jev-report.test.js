@@ -3,12 +3,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { questionsForPhase } = require('./jev-scorer');
 
 test('WhenProviderExecutionIsComplete_ShouldReportCompletionWithoutAnIncompleteDiagnostic', (t) => {
-	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-complete-test-'));
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-complete-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -60,7 +61,7 @@ test('WhenProviderExecutionIsComplete_ShouldReportCompletionWithoutAnIncompleteD
 });
 
 test('WhenReportingToMissingOutputDirectories_ShouldAppendIdenticalMarkdownToExistingSummaryWhenSet', (t) => {
-	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-summary-test-'));
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-summary-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const summary = path.join(dir, 'summary.md');
 	let expectedSummary = Buffer.from('Existing summary: résumé\n');
@@ -106,7 +107,7 @@ test('WhenReportingToMissingOutputDirectories_ShouldAppendIdenticalMarkdownToExi
 });
 
 test('WhenScoredPhasesAreRecorded_ShouldRenderDeterministicTypedJudgmentsWithoutInventingAnswers', (t) => {
-	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-test-'));
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -214,7 +215,7 @@ test('WhenScoredPhasesAreRecorded_ShouldRenderDeterministicTypedJudgmentsWithout
 });
 
 test('WhenRecordedResultsAreMissing_ShouldWriteIncompleteDiagnosticAndExitSuccessfully', (t) => {
-	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-test-'));
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -238,7 +239,7 @@ test('WhenRecordedResultsAreMissing_ShouldWriteIncompleteDiagnosticAndExitSucces
 });
 
 test('WhenRecordedResultsContainMalformedJson_ShouldWriteIncompleteDiagnosticWithoutDisclosingInput', (t) => {
-	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-test-'));
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -265,7 +266,7 @@ test('WhenRecordedResultsContainMalformedJson_ShouldWriteIncompleteDiagnosticWit
 });
 
 test('WhenRecordedExecutionIsIncomplete_ShouldReportIdentityStatusesAndUnavailablePhasesWithoutScores', (t) => {
-	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-test-'));
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -308,7 +309,7 @@ test('WhenRecordedExecutionIsIncomplete_ShouldReportIdentityStatusesAndUnavailab
 });
 
 test('WhenUntrustedRecordedValuesContainMarkup_ShouldRenderLiteralTextWithoutDisclosingEvidence', (t) => {
-	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-test-'));
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -361,7 +362,7 @@ test('WhenUntrustedRecordedValuesContainMarkup_ShouldRenderLiteralTextWithoutDis
 });
 
 test('WhenRecordedResultsAreUnavailableOrIncomplete_ShouldShowDiagnosticScorecardAndAppendIdenticalSummary', (t) => {
-	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-diagnostic-test-'));
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-diagnostic-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -413,7 +414,7 @@ test('WhenRecordedResultsAreUnavailableOrIncomplete_ShouldShowDiagnosticScorecar
 });
 
 test('WhenTypedJudgmentsAreRecorded_ShouldShowOnlyRawPerQuestionValuesBeforeSafeExpandableDetails', (t) => {
-	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-scorecard-test-'));
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-scorecard-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
