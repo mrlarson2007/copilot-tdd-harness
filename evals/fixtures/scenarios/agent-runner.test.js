@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildCopilotArgs, getEvalRunConfig } = require('./agent-runner');
+const { buildCopilotArgs, getEvalRunConfig, withEvalRunConfig } = require('./agent-runner');
 
 test('getEvalRunConfig defaults to the harness condition with no model', () => {
   assert.deepEqual(getEvalRunConfig({}), { model: null, condition: 'harness' });
@@ -18,6 +18,24 @@ test('getEvalRunConfig reads model and condition from the environment', () => {
 
 test('getEvalRunConfig rejects an unknown condition', () => {
   assert.throws(() => getEvalRunConfig({ EVAL_CONDITION: 'skills-off' }), /EVAL_CONDITION/);
+});
+
+test('WhenProvidersRunConcurrently_ShouldKeepEachModelAndConditionIsolated', async () => {
+  const configs = await Promise.all([
+    withEvalRunConfig({ model: 'model-a', condition: 'harness' }, async () => {
+      await new Promise((resolve) => setImmediate(resolve));
+      return getEvalRunConfig({ EVAL_MODEL: 'shared', EVAL_CONDITION: 'baseline' });
+    }),
+    withEvalRunConfig({ model: 'model-b', condition: 'baseline' }, async () => {
+      await new Promise((resolve) => setImmediate(resolve));
+      return getEvalRunConfig({ EVAL_MODEL: 'shared', EVAL_CONDITION: 'harness' });
+    }),
+  ]);
+
+  assert.deepEqual(configs, [
+    { model: 'model-a', condition: 'harness' },
+    { model: 'model-b', condition: 'baseline' },
+  ]);
 });
 
 test('buildCopilotArgs selects the harness agent and model in the harness condition', () => {

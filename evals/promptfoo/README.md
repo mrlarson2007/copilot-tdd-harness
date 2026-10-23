@@ -420,7 +420,16 @@ that is not a successful live evaluation.
   default agent with the same prompt.
 
 `benchmark-provider.js` records both values in each result's metadata as
-`evalModel` and `evalCondition`. `scripts/run-evals.sh` and `run-evals.ps1` set
-the variables for you (`--model`, `--condition`, `--repeat`). They write one
-result file per run to `results/runs/`, and `scripts/build-eval-report.js`
-reads those files.
+`evalModel` and `evalCondition`. For benchmark-provider configs,
+`scripts/run-evals.sh` and `run-evals.ps1` (`--model`, `--condition`,
+`--repeat`) generate one Promptfoo evaluation with a provider for every selected
+model × condition cell. Provider labels identify the model and condition, so
+the native `promptfoo view` report can compare detailed scenario outputs and
+assertions in one evaluation. Temporary matrix configs are removed after the
+run.
+
+Each benchmark evaluation is also archived as
+`results/runs/<timestamp>-<config>-matrix.json`. Individual result rows retain
+their model and condition metadata, and `scripts/build-eval-report.js` continues
+to aggregate these files for the separate static `site/` dashboard. Configs
+using other provider implementations keep the existing per-cell execution path.

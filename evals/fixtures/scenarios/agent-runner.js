@@ -3,11 +3,13 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn, execFileSync } = require('child_process');
+const { AsyncLocalStorage } = require('async_hooks');
 
 // This file lives at evals/fixtures/scenarios/agent-runner.js — 3 levels up is the repo root.
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 
 const EVAL_CONDITIONS = ['harness', 'baseline'];
+const evalRunContext = new AsyncLocalStorage();
 
 /**
  * Reads the eval matrix cell for this process from the environment.
@@ -16,13 +18,27 @@ const EVAL_CONDITIONS = ['harness', 'baseline'];
  *                    `copilot --agent=<name>`; `baseline` installs nothing and
  *                    runs the default Copilot agent with the same prompt.
  */
-function getEvalRunConfig(env = process.env) {
-  const model = (env.EVAL_MODEL || '').trim() || null;
-  const condition = (env.EVAL_CONDITION || 'harness').trim().toLowerCase();
+function getEvalRunConfig(env = process.env, providerConfig = {}) {
+  const scopedConfig = evalRunContext.getStore();
+  if (scopedConfig) return scopedConfig;
+
+  const modelValue = Object.hasOwn(providerConfig, 'evalModel') ? providerConfig.evalModel : env.EVAL_MODEL;
+  const conditionValue = Object.hasOwn(providerConfig, 'evalCondition')
+    ? providerConfig.evalCondition : env.EVAL_CONDITION;
+  const model = (typeof modelValue === 'string' ? modelValue : '').trim() || null;
+  const condition = (typeof conditionValue === 'string' ? conditionValue : 'harness').trim().toLowerCase();
   if (!EVAL_CONDITIONS.includes(condition)) {
-    throw new Error(`EVAL_CONDITION must be one of ${EVAL_CONDITIONS.join(', ')}; got "${env.EVAL_CONDITION}"`);
+    throw new Error(`EVAL_CONDITION must be one of ${EVAL_CONDITIONS.join(', ')}; got "${conditionValue}"`);
   }
   return { model, condition };
+}
+
+function withEvalRunConfig(config, callback) {
+  if (!config || (config.model !== null && typeof config.model !== 'string')
+    || !EVAL_CONDITIONS.includes(config.condition) || typeof callback !== 'function') {
+    throw new Error('Invalid eval run context');
+  }
+  return evalRunContext.run(config, callback);
 }
 
 function buildCopilotArgs({ agentName, prompt, runConfig = getEvalRunConfig() }) {
@@ -280,6 +296,7 @@ function runCopilotAgentInteractive(workspaceDir, initialPrompt, responses = [],
 module.exports = {
   buildCopilotArgs,
   getEvalRunConfig,
+  withEvalRunConfig,
   setupWorkspaceAgentFiles,
   runCopilotAgent,
   runCopilotAgentInteractive,

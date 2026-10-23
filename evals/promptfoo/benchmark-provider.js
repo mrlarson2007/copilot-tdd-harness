@@ -2,7 +2,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { getEvalRunConfig } = require('../fixtures/scenarios/agent-runner');
+const { getEvalRunConfig, withEvalRunConfig } = require('../fixtures/scenarios/agent-runner');
 
 function getVars(context) {
   return context?.vars || context?.test?.vars || context?.prompt?.vars || {};
@@ -195,7 +195,7 @@ class BenchmarkProvider {
     const vars = getVars(context);
     const scenarioModulePath = vars.scenarioModulePath;
     const summaryFilePath = vars.summaryFilePath;
-    const runConfig = getEvalRunConfig();
+    const runConfig = getEvalRunConfig(process.env, this.options.config);
     let workspace = null;
     let retainForRecovery = false;
 
@@ -209,7 +209,7 @@ class BenchmarkProvider {
       }
       const scenarioResult = summaryFilePath
         ? loadSummaryResult(summaryFilePath, vars)
-        : await executeScenarioModule(scenarioModulePath, {
+        : await withEvalRunConfig(runConfig, () => executeScenarioModule(scenarioModulePath, {
           workspaceDir: workspace?.workspaceDir || null,
           fixtureId: vars.fixtureId || null,
           baselineId: vars.baselineId || 'clean',
@@ -219,7 +219,7 @@ class BenchmarkProvider {
           prompt: vars.taskPrompt || _prompt,
           initialHead: workspace?.initialHead || null,
           vars,
-        });
+        }));
       let output = scenarioResult.summary;
       let artifactDir = null;
       let artifactPersistenceError = null;
