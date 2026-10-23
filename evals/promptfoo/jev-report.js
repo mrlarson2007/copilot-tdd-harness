@@ -70,10 +70,19 @@ if (!fs.existsSync(input)) {
 				const phases = isObject(execution.phases) ? execution.phases : {};
 				return [
 					`Revision: ${display(execution.revision)}`,
+					'',
 					`Fixture: ${display(execution.fixtureId)}`,
+					'',
 					`Scenario: ${display(execution.scenarioId)}`,
+					'',
 					`Execution status: ${display(execution.status)}`,
+					'',
 					`Collection status: ${display(execution.collectionStatus)}`,
+					'',
+					'| Phase | Status | Raw score (0–2) | Noul yes probability (0–1) |',
+					'| --- | --- | --- | --- |',
+					...['red', 'green', 'commit', 'refactor'].map((phase) =>
+						`| ${phase.toUpperCase()} | ${display(phases[phase]?.status)} | unavailable | unavailable |`),
 					'',
 					...['red', 'green', 'commit', 'refactor'].map((phase) => {
 						const judgment = isObject(phases[phase]) ? phases[phase] : {};
@@ -119,7 +128,11 @@ if (!fs.existsSync(input)) {
 							'| --- | --- | --- | --- | --- | --- |',
 							...rows, '',
 						].join('\n');
-					}),
+					}).map((details, index) => [
+						'<details>',
+						`<summary>${['RED', 'GREEN', 'COMMIT', 'REFACTOR'][index]} question details</summary>`,
+						'', details, '', '</details>', '',
+					].join('\n')),
 				].join('\n');
 			}).join('\n\n');
 		}

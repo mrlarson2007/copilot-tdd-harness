@@ -3,13 +3,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { questionsForPhase } = require('./jev-scorer');
 
 test('WhenProviderExecutionIsComplete_ShouldReportCompletionWithoutAnIncompleteDiagnostic', (t) => {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-complete-test-'));
+	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-complete-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -61,7 +60,7 @@ test('WhenProviderExecutionIsComplete_ShouldReportCompletionWithoutAnIncompleteD
 });
 
 test('WhenReportingToMissingOutputDirectories_ShouldAppendIdenticalMarkdownToExistingSummaryWhenSet', (t) => {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-summary-test-'));
+	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-summary-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const summary = path.join(dir, 'summary.md');
 	let expectedSummary = Buffer.from('Existing summary: résumé\n');
@@ -107,7 +106,7 @@ test('WhenReportingToMissingOutputDirectories_ShouldAppendIdenticalMarkdownToExi
 });
 
 test('WhenScoredPhasesAreRecorded_ShouldRenderDeterministicTypedJudgmentsWithoutInventingAnswers', (t) => {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
+	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -215,7 +214,7 @@ test('WhenScoredPhasesAreRecorded_ShouldRenderDeterministicTypedJudgmentsWithout
 });
 
 test('WhenRecordedResultsAreMissing_ShouldWriteIncompleteDiagnosticAndExitSuccessfully', (t) => {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
+	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -239,7 +238,7 @@ test('WhenRecordedResultsAreMissing_ShouldWriteIncompleteDiagnosticAndExitSucces
 });
 
 test('WhenRecordedResultsContainMalformedJson_ShouldWriteIncompleteDiagnosticWithoutDisclosingInput', (t) => {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
+	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -266,7 +265,7 @@ test('WhenRecordedResultsContainMalformedJson_ShouldWriteIncompleteDiagnosticWit
 });
 
 test('WhenRecordedExecutionIsIncomplete_ShouldReportIdentityStatusesAndUnavailablePhasesWithoutScores', (t) => {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
+	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -309,7 +308,7 @@ test('WhenRecordedExecutionIsIncomplete_ShouldReportIdentityStatusesAndUnavailab
 });
 
 test('WhenUntrustedRecordedValuesContainMarkup_ShouldRenderLiteralTextWithoutDisclosingEvidence', (t) => {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
+	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const input = path.join(dir, 'recorded-results.json');
 	const output = path.join(dir, 'report.md');
@@ -359,4 +358,56 @@ test('WhenUntrustedRecordedValuesContainMarkup_ShouldRenderLiteralTextWithoutDis
 	assert.doesNotMatch(report + result.stdout + result.stderr, /PRIVATE_EVIDENCE_SENTINEL|\b(?:request|source|evidence|error)\b|<img/);
 	assert.match(report, /Scores: unavailable\. No scores were invented\./);
 	assert.equal(fs.readFileSync(input, 'utf8'), rawInput, 'Reporting must not change recorded results');
+});
+
+test('WhenRecordedResultsAreUnavailableOrIncomplete_ShouldShowDiagnosticScorecardAndAppendIdenticalSummary', (t) => {
+	const dir = fs.mkdtempSync(path.join(__dirname, '.jev-report-diagnostic-test-'));
+	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const input = path.join(dir, 'recorded-results.json');
+	const output = path.join(dir, 'report.md');
+	const summary = path.join(dir, 'summary.md');
+	const cases = [
+		[undefined, 'The recorded-results JSON is missing.'],
+		['{"private":"PRIVATE_DIAGNOSTIC",', 'The recorded-results JSON is malformed.'],
+		['{}', 'The recorded-results wrapper results.results is absent.'],
+		['{"results":{"results":{}}}', 'The recorded-results wrapper results.results is malformed.'],
+		['{"results":{"results":[]}}', 'The recorded-results wrapper results.results is empty.'],
+		[JSON.stringify({ results: { results: [{ response: { output: {
+			revision: 'partial-revision', fixtureId: 'partial-fixture', scenarioId: 'partial-scenario',
+			status: 'incomplete', collectionStatus: 'interrupted',
+			phases: { red: { status: 'scored', response: { model: 'recorded-model' } } },
+		} } }] } }), 'Questions: unavailable (answers absent).'],
+	];
+	for (const [raw, diagnostic] of cases) {
+		if (raw !== undefined) fs.writeFileSync(input, raw);
+		const prefix = 'Existing summary: résumé\n';
+		fs.writeFileSync(summary, prefix);
+		const result = spawnSync(process.execPath, [path.join(__dirname, 'jev-report.js'), input, output],
+			{ encoding: 'utf8', env: { ...process.env, GITHUB_STEP_SUMMARY: summary } });
+		assert.equal(result.error, undefined);
+		assert.equal(result.status, 0);
+		const report = fs.readFileSync(output, 'utf8');
+		assert.match(report, /^Status: incomplete$/m);
+		assert.ok(report.includes(diagnostic));
+		assert.ok(report.includes('Scores: unavailable. No scores were invented.'));
+		assert.match(report, /This diagnostic does not indicate a completed evaluation\./);
+		assert.equal(fs.readFileSync(summary, 'utf8'), prefix + report);
+		assert.doesNotMatch(report + result.stdout + result.stderr, /PRIVATE_DIAGNOSTIC|leaderboard|baseline|average|threshold|grade/i);
+		if (raw === undefined) assert.equal(fs.existsSync(input), false);
+		else assert.equal(fs.readFileSync(input, 'utf8'), raw);
+		if (raw?.includes('partial-revision')) {
+			const [scorecard, ...disclosures] = report.split('<details>');
+			assert.match(scorecard, /Revision: partial-revision[\s\S]*Fixture: partial-fixture[\s\S]*Scenario: partial-scenario/);
+			assert.match(scorecard, /Execution status: incomplete[\s\S]*Collection status: interrupted/);
+			assert.match(scorecard, /\| Phase \| Status \| Raw score \(0–2\) \| Noul yes probability \(0–1\) \|/);
+			assert.equal(disclosures.length, 4);
+			for (const phase of ['RED', 'GREEN', 'COMMIT', 'REFACTOR']) {
+				assert.ok(scorecard.includes(`| ${phase} | ${phase === 'RED' ? 'scored' : 'unavailable'} | unavailable | unavailable |`));
+				assert.ok(report.includes(`<summary>${phase} question details</summary>\n\n`));
+			}
+			assert.equal((report.match(/<\/details>/g) || []).length, 4);
+			assert.equal((scorecard.match(/^\| (?:RED|GREEN|COMMIT|REFACTOR) \|/gm) || []).length, 4);
+			assert.doesNotMatch(scorecard, /elapsedMs:|Questions:/);
+		}
+	}
 });
