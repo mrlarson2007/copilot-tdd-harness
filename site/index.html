@@ -20,9 +20,6 @@
       data file (<code>data/eval-report.js</code>) and compare models with the TDD harness
       versus no skills at all.
     </p>
-    <div class="sample-banner" role="note">
-      <strong>Sample data.</strong> The numbers in these prototypes are illustrative and were generated, not measured.
-    </div>
     <div class="cards">
       <a href="prototype-a-scorecard/index.html"><section class="panel">
         <h2>A · Scorecard</h2>
@@ -41,5 +38,11 @@
       </section></a>
     </div>
   </main>
+  <script src="data/eval-report.js"></script>
+  <script src="assets/report.js"></script>
+  <script>
+    const banner = window.Report.sampleBanner();
+    if (banner) document.querySelector('main').prepend(banner);
+  </script>
 </body>
 </html>

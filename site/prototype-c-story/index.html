@@ -61,7 +61,10 @@
         const base = failureCounts({ condition: 'baseline' });
         const harn = failureCounts({ condition: 'harness' });
         const per100 = (c, t) => (t ? (c / t) * 100 : 0);
-        const max = Math.max(1, ...data.failureModes.map((f) => per100(base.counts[f.id], base.trials)));
+        const max = Math.max(1, ...data.failureModes.flatMap((f) => [
+          per100(base.counts[f.id], base.trials),
+          per100(harn.counts[f.id], harn.trials),
+        ]));
         return data.failureModes
           .map((f) => ({ f, b: per100(base.counts[f.id], base.trials), a: per100(harn.counts[f.id], harn.trials) }))
           .sort((x, y) => y.b - x.b)
@@ -108,8 +111,8 @@
           h('div', { class: 'muted' }, `vs ${fmt(b)} with no skills`));
         };
         return h('div', { class: 'cost' },
-          card('Median time per feature task', med('harness', 'medianDurationSec'), med('baseline', 'medianDurationSec'), (s) => `${Math.round(s)}s`),
-          card('Median commits per feature task', med('harness', 'medianCommits'), med('baseline', 'medianCommits'), (n) => `${n}`),
+          card('Median of cell medians: time per feature task', med('harness', 'medianDurationSec'), med('baseline', 'medianDurationSec'), (s) => `${Math.round(s)}s`),
+          card('Median of cell medians: commits per feature task', med('harness', 'medianCommits'), med('baseline', 'medianCommits'), (n) => `${n}`),
           card('Feature tasks ending with passing tests', tPass('harness'), tPass('baseline'), pct));
       }
 
@@ -123,9 +126,9 @@
 
         h('div', { class: 'big-compare' },
           h('div', { class: 'panel baseline' }, h('div', { class: 'value' }, pct(testFirst.baseline)),
-            h('div', {}, 'of runs wrote a failing test first ', h('strong', {}, 'with no skills'))),
+            h('div', {}, 'of runs had no detected production-before-test violation ', h('strong', {}, 'with no skills'))),
           h('div', { class: 'panel harness' }, h('div', { class: 'value' }, pct(testFirst.harness)),
-            h('div', {}, 'of runs wrote a failing test first ', h('strong', {}, 'with the harness')))),
+            h('div', {}, 'of runs had no detected production-before-test violation ', h('strong', {}, 'with the harness')))),
 
         h('h2', {}, 'What a typical run looks like (illustrative)'),
         h('div', { class: 'panel timelines' },

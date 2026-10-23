@@ -76,7 +76,7 @@
       ? document.createElementNS('http://www.w3.org/2000/svg', tag)
       : document.createElement(tag);
     for (const [key, value] of Object.entries(attrs || {})) {
-      if (value === null || value === undefined || value === false) continue;
+      if (value === null || value === undefined || (value === false && !key.startsWith('aria-'))) continue;
       if (key.startsWith('on') && typeof value === 'function') {
         el.addEventListener(key.slice(2), value);
       } else if (key === 'style' && typeof value === 'object') {

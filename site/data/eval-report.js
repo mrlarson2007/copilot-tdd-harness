@@ -43,8 +43,8 @@ window.EVAL_REPORT = {
   "metrics": [
     {
       "id": "test_first",
-      "label": "Test first",
-      "description": "No production code changed before the first failing test.",
+      "label": "No detected production-before-test violation",
+      "description": "A passing score means no production-before-test violation was detected; it does not establish that a failing test was written first.",
       "source": "assertions/detects-production-before-red.js"
     },
     {

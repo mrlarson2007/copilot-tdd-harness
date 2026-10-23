@@ -24,7 +24,7 @@ const CONDITIONS = [
 ];
 
 const METRICS = [
-  { id: 'test_first', label: 'Test first', description: 'No production code changed before the first failing test.', source: 'summary.productionChangedBeforeFirstFailingTest' },
+  { id: 'test_first', label: 'No detected production-before-test violation', description: 'A passing score means no production-before-test violation was detected; it does not establish that a failing test was written first.', source: 'summary.productionChangedBeforeFirstFailingTest' },
   { id: 'protocol_fidelity', label: 'Protocol fidelity', description: 'Run shows RED, GREEN and COMMIT phases, adds a test and ends green.', source: 'assertions/protocol-fidelity.js' },
   { id: 'commit_discipline', label: 'Commit discipline', description: 'Work is committed; nothing left uncommitted at the end.', source: 'assertions/commit-discipline.js' },
   { id: 'commit_quality', label: 'Commit quality', description: 'Test and production code land together in one atomic commit.', source: 'assertions/commit-quality.js' },
@@ -108,7 +108,9 @@ function trialFailureModes(output, scores, family) {
   const modes = family === 'clarification'
     ? []
     : (Array.isArray(output.failureModes) ? output.failureModes : []);
-  return scores.clarification === false ? [...modes, 'no-clarification-asked'] : modes;
+  return scores.clarification === false && output.clarificationAsked !== true
+    ? [...modes, 'no-clarification-asked']
+    : modes;
 }
 
 function getRows(json) {

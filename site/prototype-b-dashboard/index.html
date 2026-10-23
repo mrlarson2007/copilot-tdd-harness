@@ -12,7 +12,7 @@
     @media (min-width: 960px) { .grid { grid-template-columns: 1fr 1fr; } }
     svg text { fill: var(--muted); font-size: 12px; }
     svg .value { fill: var(--text); font-size: 11px; }
-    .heatmap { display: grid; gap: 3px; font-size: 0.8rem; }
+    .heatmap { font-size: 0.8rem; table-layout: fixed; }
     .heatmap .hcell { padding: 10px 4px; text-align: center; border-radius: 4px; font-variant-numeric: tabular-nums; }
     .heatmap .hhead { color: var(--muted); padding: 4px; text-align: center; font-size: 0.75rem; }
     .heatmap .rowhead { color: var(--text); padding: 10px 4px; }
@@ -76,22 +76,26 @@
 
       function heatmap() {
         const cols = data.metrics;
-        const grid = h('div', { class: 'heatmap', style: { gridTemplateColumns: `110px repeat(${cols.length}, 1fr)` },
-          role: 'img', 'aria-label': 'Model by metric heatmap. Hover a cell for exact values; the by-scenario table below has the same data in text form.' });
-        grid.append(h('div', { class: 'hhead' }, ''), cols.map((c) => h('div', { class: 'hhead', title: c.description }, c.label)));
+        const table = h('table', { class: 'heatmap', 'aria-label': 'Model by metric heatmap' });
+        const header = h('tr', {}, h('th', { class: 'hhead', scope: 'col' }, 'Model'));
+        header.append(...cols.map((c) => h('th', { class: 'hhead', scope: 'col', title: c.description }, c.label)));
+        table.append(h('thead', {}, header));
+        const body = h('tbody');
         for (const m of data.models) {
-          grid.append(h('div', { class: 'rowhead' }, m.label));
+          const row = h('tr', {}, h('th', { class: 'rowhead', scope: 'row' }, m.label));
           for (const c of cols) {
             const f = { model: m.id, metric: c.id, scenario: state.scenario || undefined };
             const a = passRate({ ...f, condition: 'harness' });
             const b = passRate({ ...f, condition: 'baseline' });
             const v = state.heat === 'harness' ? a : state.heat === 'baseline' ? b : (a === null || b === null ? null : a - b);
-            grid.append(h('div', { class: 'hcell', style: { background: heatColor(v, state.heat) },
+            row.append(h('td', { class: 'hcell', style: { background: heatColor(v, state.heat) },
               title: `${m.label} · ${c.label}: with harness ${pct(a)}, no skills ${pct(b)}` },
               v === null ? '—' : state.heat === 'lift' ? pts(v).replace(' pts', '') : pct(v)));
           }
+          body.append(row);
         }
-        return grid;
+        table.append(body);
+        return table;
       }
 
       function scenarioTable() {

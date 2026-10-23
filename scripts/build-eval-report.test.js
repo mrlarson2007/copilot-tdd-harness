@@ -73,6 +73,21 @@ test('buildReport ignores schema checks and lists only metrics that were measure
   assert.ok(metricIds.includes('test_first'));
 });
 
+test('buildReport describes test-first results as absence of a detected violation', () => {
+  const row = featureRow({
+    model: 'm',
+    condition: 'harness',
+    overrides: { commitCount: 0, newTestsAdded: 0 },
+  });
+
+  const report = buildReport([runFile([row])]);
+  const metric = report.metrics.find((item) => item.id === 'test_first');
+
+  assert.equal(report.runs[0].passes.test_first, 1);
+  assert.equal(metric.label, 'No detected production-before-test violation');
+  assert.match(metric.description, /does not establish that a failing test was written first/);
+});
+
 test('buildReport treats runs without model or condition metadata as harness runs on the default model', () => {
   const row = featureRow({ model: undefined, condition: undefined });
   row.response.metadata = {};
@@ -106,6 +121,20 @@ test('buildReport scores the ambiguous-prompt scenario on clarification only', (
 
   assert.deepEqual(report.runs[0].passes, { clarification: 0 });
   assert.deepEqual(report.runs[0].failureModes, { 'no-clarification-asked': 1 });
+});
+
+test('buildReport does not report guessing when clarification was asked', () => {
+  const row = featureRow({ model: 'm', condition: 'baseline' });
+  row.vars.scenarioFamily = 'clarification';
+  row.gradingResult.componentResults = [
+    { pass: false, assertion: { metric: 'clarification_stops' } },
+    { pass: false, assertion: { metric: 'clarification_quality' } },
+  ];
+  row.response.output.clarificationAsked = true;
+
+  const report = buildReport([runFile([row])]);
+
+  assert.deepEqual(report.runs[0].failureModes, {});
 });
 
 test('renderReportScript assigns the report to window.EVAL_REPORT', () => {
