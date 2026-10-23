@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Score previously collected public fixture JSON in a separate credential-isolated job.
+
+prompts:
+  - Record Jev judgments for the reviewed phase evidence.
+
+providers:
+  - id: file://./jev-evidence-provider.js
+    label: jev-isolated-evidence-recorder
+
+evaluateOptions:
+  maxConcurrency: 1
+
+tests:
+  - description: Recorded calculator TDD phase judgments
+    # No semantic assertions: the workflow separately checks execution completeness.
+
+outputPath:
+  - results/promptfoo-jev-recorded.json
