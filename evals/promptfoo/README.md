@@ -291,8 +291,10 @@ expiry limit risk but do not sandbox generated code. The TypeSafe key is never
 supplied to collection, and the collector refuses to run when
 `TYPESAFE_API_KEY` is present in its environment. Job environments are not
 themselves process sandboxes.
-The workflow token has only `contents: read`, checkout does not persist its
-credentials, and the workflow performs no release, push, or repository write.
+Collection, scoring, and report generation have only `contents: read`, and
+checkout does not persist credentials. Only the separate Pages deployment job
+has `pages: write` and `id-token: write`; it has no checkout or service secrets.
+The workflow performs no release, push, or repository-content write.
 
 The collector writes atomic evidence checkpoints outside the checkout as JSON
 with `schemaVersion: 1`, bound to the reviewed workflow revision and limited to
@@ -348,6 +350,49 @@ Collection has a 45-minute limit and scoring a 5-minute limit. Concurrency permi
 only one active live evaluation, with no automatic cancellation/retry (GitHub
 may replace an older pending run when another is queued). No live run or
 credential access is needed for the deterministic local tests.
+
+### Published HTML reports (GitHub Pages)
+
+After a complete, successful default-branch **Jev Live Evaluation**, a fresh
+`report` job downloads only that run's `jev-scores` artifact and generates:
+
+- `index.html`: latest published results, report-generation time (UTC), evaluated
+  commit, and originating Actions run.
+- `jev.html`: recorded Jev scores and probabilities with expandable rubric details.
+- `promptfoo.html`: a standalone, sanitized view of the Promptfoo-recorded
+  execution results. This is a static public report, not the interactive native
+  Promptfoo viewer or a raw export; prompts and evidence are deliberately omitted.
+
+The `publish` job deploys only those HTML files. Its deployment URL and run
+summary link to the landing page and both reports. The repository README links
+to the same [latest-results site](https://mrlarson2007.github.io/copilot-tdd-harness/).
+These URLs always show the **latest successful publication**, not an immutable
+snapshot of an older run. Check the displayed run and commit when following an
+old Actions summary. Existing runs are not retroactively published.
+
+**One-time setup:** in **Settings → Pages → Build and deployment**, select
+**GitHub Actions** as the source. Configure the `github-pages` environment to
+allow deployments only from the default branch; retain any required approvals
+you want for public publication. Keep the `jev-agent` and `jev-score` protections
+and `JEV_LIVE_ENABLED` setup above. Optionally set the repository's **About →
+Website** to the latest-results URL. Merge these changes before dispatching a
+new default-branch run. The link will not work until the first successful
+deployment. Forks or renamed repositories must update the README's site URL.
+
+The publication generator reads downloaded JSON as data and emits an allowlist
+of canonical rubric labels, known execution states, validated numeric judgments,
+timing/token counts, and trusted run metadata. It does not publish raw JSON,
+prompts, transcripts, judge state, errors, arbitrary response text, or service
+credentials. Generation and deployment run on fresh runners without the Copilot
+or TypeSafe secrets. The sample-data `site/` prototypes are not deployment inputs.
+Treat Pages output as public; continue using only non-sensitive public fixtures.
+
+Missing, malformed, empty, incomplete, or revision-mismatched results cannot
+replace the previous site. Every published row must have complete execution,
+collected evidence, and four scored phases. Low or zero judgments still publish;
+completion is not a favorable judgment, and assertion-free Promptfoo results are
+not proof of compliance. Failed evaluations retain the existing Markdown
+diagnostics and short-lived Actions artifacts instead.
 
 Run the deterministic artifact-boundary and phase-collection tests without
 service credentials:
