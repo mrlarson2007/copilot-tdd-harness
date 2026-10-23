@@ -284,7 +284,6 @@ Collection uses Node 22, the fixture's Go version, and pinned Copilot CLI
 Promptfoo/TypeSafe tooling. Only the collection step receives the Copilot token;
 **generated agent code can still access that token**. Minimal scope and short
 expiry limit risk but do not sandbox generated code. The TypeSafe key is never
-supplied to collection. Job environments are not themselves process sandboxes.
 The workflow token has only `contents: read`, checkout does not persist its
 credentials, and the workflow performs no release, push, or repository write.
 

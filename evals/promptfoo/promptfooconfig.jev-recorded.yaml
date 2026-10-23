@@ -13,6 +13,8 @@ evaluateOptions:
 
 tests:
   - description: Recorded calculator TDD phase judgments
+    vars:
+      fixtureId: calculator-cli-go
     # No semantic assertions: the workflow separately checks execution completeness.
 
 outputPath:

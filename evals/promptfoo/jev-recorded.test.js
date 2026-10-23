@@ -129,3 +129,17 @@ test('a Jev service failure remains incomplete rather than a successful recordin
 	assert.equal(result.output.status, 'incomplete');
 	assert.equal(result.output.phases.red.response, null);
 });
+
+test('collection refuses a TypeSafe credential before invoking any agent or writing evidence', async (t) => {
+	const target = file(t);
+	const original = process.env.TYPESAFE_API_KEY;
+	process.env.TYPESAFE_API_KEY = 'synthetic-forbidden-scoring-key';
+	t.after(() => {
+		if (original === undefined) delete process.env.TYPESAFE_API_KEY;
+		else process.env.TYPESAFE_API_KEY = original;
+	});
+	let calls = 0;
+	await assert.rejects(() => collect(target, { runAgent: async () => { calls++; } }), /without TYPESAFE_API_KEY/);
+	assert.equal(calls, 0);
+	assert.equal(fs.existsSync(target), false);
+});
