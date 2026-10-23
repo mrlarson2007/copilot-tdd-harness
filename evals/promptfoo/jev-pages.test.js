@@ -91,3 +91,49 @@ test('WhenRecordedExecutionIsComplete_ShouldWriteThreeLinkedStandalonePagesWithR
 	assert.match(landing, /Complete executions: 1/);
 	assert.match(landing, /Incomplete executions: 0/);
 });
+
+test('WhenCompleteRowsHaveLowOrFractionalJudgments_ShouldPublishRecordedCanonicalScorecardsAndExecutionCounts', (t) => {
+	const files = workspace(t);
+	const fractional = execution();
+	fractional.phases.red.response.answers.focused_test.score = 1.25;
+	fractional.phases.red.response.answers.meaningful_failure.noul = 0.125;
+	fractional.phases.red.response.answers.meaningful_failure.confidence = 0;
+	writeRows(files, [execution(), fractional]);
+	const recorded = JSON.parse(fs.readFileSync(files.input));
+	recorded.results.stats = { successes: 999, failures: 999 };
+	fs.writeFileSync(files.input, JSON.stringify(recorded));
+	const result = run(files);
+	assert.equal(result.status, 0, result.stderr);
+	for (const name of ['jev.html', 'promptfoo.html']) {
+		const html = fs.readFileSync(path.join(files.output, name), 'utf8');
+		assert.match(html, /Complete executions: 2/);
+		assert.match(html, /Incomplete executions: 0/);
+		assert.match(html, /Execution 1/);
+		assert.match(html, /Execution 2/);
+		assert.match(html, /Execution status: complete/);
+		assert.match(html, /Collection status: collected/);
+		assert.match(html, /calculator-cli-go/);
+		assert.match(html, /jev-phase-subtract/);
+		assert.match(html, /<td>1.25<\/td>/);
+		assert.match(html, /<td>0.125<\/td>/);
+		assert.match(html, /<td>0<\/td>/);
+		assert.match(html, /<td>0.75<\/td>/);
+		assert.match(html, /Elapsed \(ms\): 12.5/);
+		assert.match(html, /Input tokens: 21/);
+		assert.match(html, /Output tokens: 34/);
+		assert.match(html, /Raw score \(0–2\)/);
+		assert.match(html, /Noul yes probability \(0–1\)/);
+		assert.match(html, /Confidence \(0–1\)/);
+		assert.match(html, /Complete execution does not imply compliance or a favorable judgment/);
+		assert.match(html, /Assertion-free execution is not a compliance check/);
+		assert.doesNotMatch(html, /999|average|threshold|never-publish-model/);
+		for (const phase of phases) {
+			assert.match(html, new RegExp(`<summary>${phase.toUpperCase()}: scored`));
+			for (const [id, question] of Object.entries(questionsForPhase(phase))) {
+				assert.ok(html.includes(id), id);
+				assert.ok(html.includes(question.instructions.replace(/&/g, '&amp;').replace(/`/g, '`')), id);
+				for (const criterion of question.criteria || []) assert.ok(html.includes(criterion), criterion);
+			}
+		}
+	}
+});
