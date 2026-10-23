@@ -111,6 +111,17 @@ test('buildReport skips the eval self-test, non-TDD scenarios and rows without o
   assert.equal(report.skipped.erroredRows, 1);
 });
 
+test('WhenScenarioFamilyIsUnsupported_ShouldExcludeRowFromReport', () => {
+  const row = featureRow({ model: 'm', condition: 'harness' });
+  row.vars.scenarioFamily = 'red-phase';
+
+  const report = buildReport([runFile([row])]);
+
+  assert.deepEqual(report.runs, []);
+  assert.deepEqual(report.scenarios, []);
+  assert.equal(report.skipped.excludedRows, 1);
+});
+
 test('buildReport scores the ambiguous-prompt scenario on clarification only', () => {
   const row = featureRow({ model: 'm', condition: 'baseline' });
   row.vars.scenarioFamily = 'clarification';
