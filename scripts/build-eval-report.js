@@ -148,6 +148,10 @@ function buildReport(runFiles, options = {}) {
       const model = metadata.evalModel || 'default';
       const condition = metadata.evalCondition || 'harness';
       const family = vars.scenarioFamily || output.scenarioFamily || 'feature';
+      if (!['feature', 'clarification', 'extended'].includes(family)) {
+        skipped.excludedRows += 1;
+        continue;
+      }
 
       if (!scenarios.has(key)) {
         scenarios.set(key, {
