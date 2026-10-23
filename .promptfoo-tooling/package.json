@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@typesafe-ai/sdk": "0.7.0",
     "promptfoo": "^0.121.9"
   }
 }
