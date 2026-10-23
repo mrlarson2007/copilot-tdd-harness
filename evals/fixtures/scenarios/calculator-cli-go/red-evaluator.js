@@ -49,6 +49,7 @@ function snapshot(dir, relative = '') {
 
 function gitEvidence(dir) {
 	const git = (...args) => command(dir, 'git', args);
+	const logsDir = path.join(dir, '.git', 'logs');
 	return {
 		head: git('rev-parse', 'HEAD'),
 		status: git('status', '--porcelain=v1', '--untracked-files=all'),
@@ -58,7 +59,7 @@ function gitEvidence(dir) {
 		refs: git('show-ref'),
 		objects: git('cat-file', '--batch-all-objects', '--batch-check=%(objectname) %(objecttype)'),
 		config: git('config', '--local', '--list'),
-		rawLogs: snapshot(path.join(dir, '.git', 'logs')),
+		rawLogs: fs.existsSync(logsDir) ? snapshot(logsDir) : null,
 	};
 }
 

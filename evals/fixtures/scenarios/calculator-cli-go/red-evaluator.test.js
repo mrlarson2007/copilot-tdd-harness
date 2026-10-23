@@ -170,3 +170,14 @@ func TestWhenSubtractRequested_ShouldPrintDifference(t *testing.T) {
 	assert.equal(result.pass, false);
 	assert.equal(result.checks.sensitiveToWrongImplementation, false);
 });
+
+test('retains failed evidence when the agent removes Git reflog files', async (t) => {
+	const result = await evaluate(t, (dir) => {
+		fs.appendFileSync(path.join(dir, 'main_test.go'), newTest);
+		fs.rmSync(path.join(dir, '.git', 'logs'), { recursive: true });
+	});
+	assert.equal(result.pass, false);
+	assert.equal(result.checks.noCommits, false);
+	assert.equal(result.evidence.baseline.suite.exitCode, 0);
+	assert.equal(result.evidence.red.git.rawLogs, null);
+});
