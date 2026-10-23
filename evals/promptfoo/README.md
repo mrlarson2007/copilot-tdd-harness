@@ -73,6 +73,10 @@ Git state, and passing baseline results. Independently after Copilot stops, it:
 - Captures RED artifacts **before** applying the evaluator's known subtract
   implementation. With the agent-authored test unchanged, both selected test and
   suite must then pass. An unconditional failure is rejected. The evaluator
+  also substitutes addition for subtraction and requires the test to reject that
+  incorrect implementation, ruling out a source-only command-presence check.
+  It checks Git/files again after executing agent-authored Go code, including
+  test initialization and known/wrong implementation checks. The evaluator
   restores production afterward; it never commits.
 
 ### Evidence and deterministic checks
@@ -83,7 +87,7 @@ Before disposable-workspace cleanup, the existing provider saves
 `scenario-artifacts.json` contains the baseline, agent exit/output, RED test
 results, working-tree and staged diffs, full file snapshots (base64 content plus
 modes, including untracked tests), reflogs and commit objects, and
-known-implementation source/results. Use these RED-specific snapshots/diffs:
+known/wrong-implementation source/results. Use these RED-specific snapshots/diffs:
 the provider's generic `git-diff.txt` only compares commits. Promptfoo's scoring
 report is `evals/promptfoo/results/promptfoo-red.json`.
 

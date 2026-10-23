@@ -176,6 +176,7 @@ async function evaluateRed(dir, runAgent) {
 		&& isDeepStrictEqual(names(red.suite, 'pass'), existing)
 		&& isDeepStrictEqual(names(red.suite, 'run'), [...existing, ...additions].sort());
 	captureVerificationState(dir, baseline, red, checks);
+	checks.sensitiveToWrongImplementation = false;
 
 	// Capture RED evidence above before the evaluator (not the agent) applies GREEN.
 	if (checks.onlyTestsChanged && checks.noCommits && checks.verificationPreservesWorkspace) {
@@ -200,6 +201,26 @@ async function evaluateRed(dir, runAgent) {
 				&& isDeepStrictEqual(names(known.suite, 'pass'), [...existing, ...additions].sort())
 				&& Object.keys(red.files).filter((name) => name.endsWith('_test.go'))
 					.every((name) => isDeepStrictEqual(red.files[name], known.files[name]));
+			if (checks.usefulWithKnownImplementation && checks.verificationPreservesWorkspace && checks.noCommits) {
+				const wrongSource = known.production.replace('fmt.Println(left - right)', 'fmt.Println(left + right)');
+				fs.writeFileSync(mainPath, wrongSource);
+				const expectedWrongFiles = snapshot(dir);
+				const wrong = evidence.wrongImplementation = {
+					production: wrongSource,
+					selected: goTests(dir, pattern(additions)),
+					files: snapshot(dir),
+					git: gitEvidence(dir),
+				};
+				checks.sensitiveToWrongImplementation = wrongSource !== known.production
+					&& wrong.selected.exitCode === 1 && !wrong.selected.error && !wrong.selected.signal
+					&& isDeepStrictEqual(names(wrong.selected, 'fail'), additions)
+					&& names(wrong.selected, 'skip').length === 0
+					&& /_test\.go:\d+:/.test(wrong.selected.output)
+					&& !/panic:|test timed out|DATA RACE/.test(wrong.selected.output);
+				checks.noCommits = checks.noCommits && unchangedGit(baseline.git, wrong.git);
+				checks.verificationPreservesWorkspace = checks.verificationPreservesWorkspace
+					&& isDeepStrictEqual(expectedWrongFiles, wrong.files);
+			}
 		} finally {
 			fs.writeFileSync(mainPath, original);
 		}

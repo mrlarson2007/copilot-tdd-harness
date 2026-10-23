@@ -6,6 +6,7 @@ module.exports = (output) => {
 		'baselinePasses', 'agentCompleted', 'oneNewTest', 'onlyTestsChanged',
 		'noCommits', 'existingTestsPass', 'expectedAssertionFailure',
 		'onlyRequestedFailure', 'usefulWithKnownImplementation', 'verificationPreservesWorkspace',
+		'sensitiveToWrongImplementation',
 	];
 	const failed = required.filter((name) => result?.checks?.[name] !== true);
 	const pass = result?.runMode === 'red-only' && result?.pass === true && failed.length === 0;

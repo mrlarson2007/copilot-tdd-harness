@@ -154,3 +154,19 @@ func init() {
 	assert.equal(result.pass, false);
 	assert.equal(result.checks.noCommits, false);
 });
+
+test('rejects source-text inspection that never asserts subtraction output', async (t) => {
+	const result = await evaluate(t, (dir) => fs.writeFileSync(path.join(dir, 'source_test.go'), `
+package main
+import ("os"; "strings"; "testing")
+func TestWhenSubtractRequested_ShouldPrintDifference(t *testing.T) {
+	source, err := os.ReadFile("main.go")
+	if err != nil { t.Fatal(err) }
+	if !strings.Contains(string(source), "case \\"subtract\\":") {
+		t.Fatal("unknown command: subtract")
+	}
+}
+`));
+	assert.equal(result.pass, false);
+	assert.equal(result.checks.sensitiveToWrongImplementation, false);
+});
