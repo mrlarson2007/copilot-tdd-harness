@@ -15,6 +15,14 @@ sample data, comparison metrics, or builder. See the
 [Jev workflow documentation](../evals/promptfoo/README.md#safe-manual-github-actions-setup).
 GitHub Actions does not render these interactive HTML prototypes in the Summary.
 
+The live evaluation now publishes a **separate, real-results site** at
+[Latest evaluation results](https://mrlarson2007.github.io/copilot-tdd-harness/).
+It contains the Jev HTML scorecard and a sanitized standalone Promptfoo report,
+not these sample-data prototypes. See
+[Pages setup and publication behavior](../evals/promptfoo/README.md#published-html-reports-github-pages).
+The workflow generates its publication from recorded results in a temporary
+directory; it does not deploy or overwrite `site/`.
+
 ## Prototypes
 
 | Prototype | Path | Idea |
@@ -77,8 +85,10 @@ for the fixtures.
    `site/data/eval-report.js` with `isSample: false`, which also removes the
    sample banner. Open `site/index.html` to check the result.
 
-3. **Publish.** Commit `site/data/eval-report.js`. If GitHub Pages serves
-   `site/`, visitors see the new numbers after the commit lands.
+3. **Publish elsewhere.** Commit `site/data/eval-report.js` and serve `site/`
+   with a separate static host to publish these prototypes. The live-evaluation
+   Pages deployment uses the repository's Pages site and replaces its contents;
+   it does not include these prototypes or the benchmark matrix.
 
 The builder only counts the TDD fixture scenarios. It skips the
 `commit-discipline-failure` self-test (it checks the eval tooling, not the

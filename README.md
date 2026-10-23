@@ -44,6 +44,12 @@ Then, in the target project:
 
 ## Running Evals
 
+[**Latest evaluation results**](https://mrlarson2007.github.io/copilot-tdd-harness/)
+— published Jev HTML scorecard and sanitized standalone Promptfoo report from
+the latest successfully published **Jev Live Evaluation** run. The landing page
+identifies its timestamp, commit, and Actions run; incomplete runs leave the
+previous publication unchanged. See [Pages setup](evals/promptfoo/README.md#published-html-reports-github-pages).
+
 The eval suite uses the local promptfoo install in [`.promptfoo-tooling/`](.promptfoo-tooling/).
 
 Run the standard benchmark:
