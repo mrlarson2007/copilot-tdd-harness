@@ -314,11 +314,21 @@ Jev scoring step receives the `TYPESAFE_API_KEY` secret and
 public fixture evidence to TypeSafe. Copilot credentials are not supplied to
 scoring. Promptfoo caching is disabled.
 
-The `jev-scores` artifact contains only fixed recorded-evaluation JSON report
-paths, retained for one day. The workflow independently requires every report
-row's `response.output.status` to be `complete`, even if Promptfoo displays an
-assertion-free green row. Missing/unavailable/incomplete results fail; completion
-is **not** a favorable Jev judgment, and no semantic-score threshold is imposed.
+After scoring, view the deterministic report in the score job's **Actions
+summary**, or download `jev-scores/jev-recorded-report.md` from the run's
+`jev-scores` artifact. The formatter always runs after scoring and before the
+independent completion gate; its CLI also appends the report to the job summary.
+The always-uploaded artifact retains the raw `promptfoo-jev-recorded.json` and
+`jev-recorded-score.json` alongside the Markdown report, using only fixed paths
+and one-day retention.
+
+The report shows all four phases (RED, GREEN, COMMIT, REFACTOR), with raw scores
+of 0–2 and `noul` probabilities of yes of 0–1, without thresholds or averages.
+The workflow independently requires every raw report row's
+`response.output.status` to be `complete`, even if Promptfoo displays an
+assertion-free green row. Missing/malformed/unavailable/incomplete results fail;
+`complete` means execution and scoring finished, **not** favorable judgments.
+A diagnostic incomplete report does not override or replace that unchanged gate.
 Collection has a 45-minute limit and scoring a 5-minute limit. Concurrency permits
 only one active live evaluation, with no automatic cancellation/retry (GitHub
 may replace an older pending run when another is queued). No live run or

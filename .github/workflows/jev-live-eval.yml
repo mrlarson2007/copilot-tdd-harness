@@ -117,6 +117,11 @@ jobs:
           PROMPTFOO_CACHE_ENABLED: 'false'
         run: bash "$GITHUB_WORKSPACE/scripts/run-evals.sh" --config "$GITHUB_WORKSPACE/evals/promptfoo/promptfooconfig.jev-recorded.yaml"
 
+      - name: Format recorded Jev report
+        if: ${{ always() }}
+        shell: bash
+        run: node "$GITHUB_WORKSPACE/evals/promptfoo/jev-report.js" "$GITHUB_WORKSPACE/evals/promptfoo/results/promptfoo-jev-recorded.json" "$GITHUB_WORKSPACE/evals/promptfoo/results/jev-recorded-report.md"
+
       - name: Require complete execution, not favorable judgments
         if: ${{ always() }}
         shell: bash
@@ -141,5 +146,6 @@ jobs:
           path: |
             evals/promptfoo/results/promptfoo-jev-recorded.json
             evals/promptfoo/results/jev-recorded-score.json
+            evals/promptfoo/results/jev-recorded-report.md
           if-no-files-found: warn
           retention-days: 1
