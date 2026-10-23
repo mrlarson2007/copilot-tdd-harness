@@ -131,7 +131,7 @@ test('WhenCompleteRowsHaveLowOrFractionalJudgments_ShouldPublishRecordedCanonica
 			assert.match(html, new RegExp(`<summary>${phase.toUpperCase()}: scored`));
 			for (const [id, question] of Object.entries(questionsForPhase(phase))) {
 				assert.ok(html.includes(id), id);
-				assert.ok(html.includes(question.instructions.replace(/&/g, '&amp;').replace(/`/g, '`')), id);
+				assert.ok(html.includes(question.instructions.replace(/&/g, '&amp;')), id);
 				for (const criterion of question.criteria || []) assert.ok(html.includes(criterion), criterion);
 			}
 		}
