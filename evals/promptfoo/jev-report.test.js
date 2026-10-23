@@ -8,6 +8,58 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { questionsForPhase } = require('./jev-scorer');
 
+test('WhenProviderExecutionIsComplete_ShouldReportCompletionWithoutAnIncompleteDiagnostic', (t) => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-complete-test-'));
+	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const input = path.join(dir, 'recorded-results.json');
+	const output = path.join(dir, 'report.md');
+	const phases = Object.fromEntries(['red', 'green', 'commit', 'refactor'].map((phase) => {
+		const questions = questionsForPhase(phase);
+		return [phase, {
+			phase, status: 'scored', elapsedMs: 42,
+			request: { questions },
+			response: {
+				model: 'recorded-jev',
+				answers: Object.fromEntries(Object.entries(questions).map(([id, question]) => [
+					id, { type: question.type, [question.type]: 0, confidence: 0.9 },
+				])),
+				usage: { input_tokens: 123, output_tokens: 12 },
+			},
+		}];
+	}));
+	const rawInput = JSON.stringify({ results: { results: [{
+		response: {
+			output: {
+				fixtureId: 'calculator-cli-go', scenarioId: 'jev-phase-subtract',
+				revision: 'a'.repeat(40), runMode: 'jev-recorded-evidence',
+				status: 'complete', collectionStatus: 'collected', phases,
+			},
+			metadata: { evidenceSchemaVersion: 1, recordedOnly: true },
+		},
+	}] } });
+	fs.writeFileSync(input, rawInput);
+	const env = { ...process.env };
+	delete env.GITHUB_STEP_SUMMARY;
+
+	const result = spawnSync(process.execPath, [
+		path.join(__dirname, 'jev-report.js'), input, output,
+	], { encoding: 'utf8', env });
+
+	assert.equal(result.error, undefined);
+	assert.equal(result.status, 0);
+	const report = fs.readFileSync(output, 'utf8');
+	assert.match(report, /^Status: complete$/m);
+	assert.match(report, /^Execution status: complete$/m);
+	assert.match(report, /^Collection status: collected$/m);
+	for (const phase of Object.keys(phases)) {
+		assert.ok(report.includes(`${phase.toUpperCase()}: status: scored; model: recorded-jev`));
+	}
+	assert.match(report, /Complete execution does not imply a favorable judgment\./);
+	assert.match(report, /The existing completion gate remains authoritative\./);
+	assert.doesNotMatch(report, /This diagnostic does not indicate a completed evaluation\.|Status: incomplete/);
+	assert.equal(fs.readFileSync(input, 'utf8'), rawInput);
+});
+
 test('WhenReportingToMissingOutputDirectories_ShouldAppendIdenticalMarkdownToExistingSummaryWhenSet', (t) => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-summary-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -25,7 +77,10 @@ test('WhenReportingToMissingOutputDirectories_ShouldAppendIdenticalMarkdownToExi
 				fs.mkdirSync(path.dirname(input), { recursive: true });
 				fs.writeFileSync(input, JSON.stringify({ results: { results: [{ response: { output: {
 					revision: 'recorded-revision', fixtureId: 'fixture', scenarioId: 'scenario',
-					status: 'complete', collectionStatus: 'complete', phases: {},
+					status: 'complete', collectionStatus: 'collected',
+					phases: Object.fromEntries(['red', 'green', 'commit', 'refactor'].map((phase) => [
+						phase, { status: 'scored' },
+					])),
 				} } }] } }));
 			}
 			const env = { ...process.env };

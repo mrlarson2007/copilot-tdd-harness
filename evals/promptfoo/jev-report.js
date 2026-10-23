@@ -18,8 +18,7 @@ Raw score (0–2): 0, 1, and 2 correspond to the listed criteria; fractional sco
 Noul yes probability (0–1): noul is the probability of yes, not a criteria score.
 Complete execution does not imply a favorable judgment.` : 'Scores: unavailable. No scores were invented.'}
 
-This diagnostic does not indicate a completed evaluation.
-The existing completion gate remains authoritative.
+${complete ? '' : 'This diagnostic does not indicate a completed evaluation.\n'}The existing completion gate remains authoritative.
 `;
 	fs.mkdirSync(path.dirname(output), { recursive: true });
 	fs.writeFileSync(output, report, 'utf8');
@@ -60,7 +59,9 @@ if (!fs.existsSync(input)) {
 		} else {
 			complete = recorded.results.results.every((entry) =>
 				entry?.response?.output?.status === 'complete'
-				&& entry?.response?.output?.collectionStatus === 'complete');
+				&& entry?.response?.output?.collectionStatus === 'collected'
+				&& ['red', 'green', 'commit', 'refactor'].every((phase) =>
+					entry?.response?.output?.phases?.[phase]?.status === 'scored'));
 			details = recorded.results.results.map((entry, index) => {
 				if (!isObject(entry) || !isObject(entry.response) || !isObject(entry.response.output)) {
 					return `Result ${index + 1}: response.output is absent or malformed; recorded execution unavailable.`;
