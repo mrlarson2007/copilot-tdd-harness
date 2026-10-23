@@ -50,11 +50,31 @@ function snapshot(dir, relative = '') {
 function gitEvidence(dir, options = {}) {
 	const git = (...args) => command(dir, 'git', args, options);
 	const logsDir = path.join(dir, '.git', 'logs');
+	const staged = git('diff', '--cached', '--no-ext-diff', '--no-textconv');
+	const stagedPaths = git('diff', '--cached', '--name-only', '-z');
+	const stagedFiles = {};
+	if (succeeded(stagedPaths)) {
+		for (const name of stagedPaths.output.split('\0').filter(Boolean)) {
+			const entries = git('ls-files', '--stage', '-z', '--', name).output.split('\0').filter(Boolean);
+			const match = entries.length === 1 && entries[0].match(/^(\d+) ([0-9a-f]+) 0\t/);
+			if (!match) {
+				stagedFiles[name] = null;
+				continue;
+			}
+			const blob = git('cat-file', 'blob', match[2]);
+			stagedFiles[name] = succeeded(blob) ? {
+				mode: Number.parseInt(match[1], 8),
+				type: 'file',
+				content: Buffer.from(blob.output).toString('base64'),
+			} : null;
+		}
+	}
 	return {
 		head: git('rev-parse', 'HEAD'),
 		status: git('status', '--porcelain=v1', '--untracked-files=all'),
 		diff: git('diff', '--no-ext-diff', '--no-textconv', 'HEAD', '--'),
-		staged: git('diff', '--cached', '--no-ext-diff', '--no-textconv'),
+		staged,
+		stagedFiles: succeeded(stagedPaths) ? stagedFiles : null,
 		reflog: git('reflog', 'show', '--all', '--format=%H %gs'),
 		refs: git('show-ref'),
 		objects: git('cat-file', '--batch-all-objects', '--batch-check=%(objectname) %(objecttype)'),
@@ -102,11 +122,20 @@ function unchangedGit(before, after) {
 	}) && isDeepStrictEqual(before.rawLogs, after.rawLogs);
 }
 
+function testFileAdditionIsValid(name, before, after) {
+	if (!/^[^/]+_test\.go$/.test(name) || !after || after.type !== 'file') return false;
+	if (!before) return true;
+	return before.type === 'file' && before.mode === after.mode
+		&& Buffer.from(after.content, 'base64').subarray(0, Buffer.from(before.content, 'base64').length)
+			.equals(Buffer.from(before.content, 'base64'));
+}
+
 function captureVerificationState(dir, baseline, red, checks) {
 	red.afterVerification = { files: snapshot(dir), git: gitEvidence(dir) };
 	checks.noCommits = unchangedGit(baseline.git, red.git)
 		&& unchangedGit(baseline.git, red.afterVerification.git);
 	checks.verificationPreservesWorkspace = isDeepStrictEqual(red.files, red.afterVerification.files);
+	checks.verificationPreservesIndex = isDeepStrictEqual(red.git.stagedFiles, red.afterVerification.git.stagedFiles);
 }
 
 async function evaluateRed(dir, runAgent) {
@@ -145,16 +174,12 @@ async function evaluateRed(dir, runAgent) {
 		.filter((name) => !isDeepStrictEqual(baseline.files[name], red.files[name]));
 	red.changedFiles = changed;
 	red.newTests = additions;
-	checks.onlyTestsChanged = changed.length > 0 && changed.every((name) => {
-		const before = baseline.files[name];
-		const after = red.files[name];
-		if (!/^[^/]+_test\.go$/.test(name) || !after || after.type !== 'file') return false;
-		if (!before) return true;
-		// Keep every byte of existing tests, including imports and assertions.
-		return before.type === 'file' && before.mode === after.mode
-			&& Buffer.from(after.content, 'base64').subarray(0, Buffer.from(before.content, 'base64').length)
-				.equals(Buffer.from(before.content, 'base64'));
-	});
+	const stagedChangesValid = red.git.stagedFiles !== null
+		&& Object.entries(red.git.stagedFiles).every(([name, after]) =>
+			testFileAdditionIsValid(name, baseline.files[name], after));
+	checks.onlyTestsChanged = changed.length > 0 && changed.every((name) =>
+		testFileAdditionIsValid(name, baseline.files[name], red.files[name]))
+		&& stagedChangesValid;
 	red.existing = goTests(dir, pattern(existing));
 	checks.existingTestsPass = succeeded(red.existing)
 		&& isDeepStrictEqual(names(red.existing, 'pass'), existing)

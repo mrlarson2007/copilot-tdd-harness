@@ -85,6 +85,19 @@ test('rejects agent production edits', async (t) => {
 	assert.equal(result.checks.onlyTestsChanged, false);
 });
 
+test('rejects staged production edits even when the working tree is restored', async (t) => {
+	const result = await evaluate(t, (dir) => {
+		fs.appendFileSync(path.join(dir, 'main_test.go'), newTest);
+		const mainPath = path.join(dir, 'main.go');
+		const original = fs.readFileSync(mainPath);
+		addSubtractImplementation(dir);
+		git(dir, 'add', 'main.go');
+		fs.writeFileSync(mainPath, original);
+	});
+	assert.equal(result.pass, false);
+	assert.equal(result.checks.onlyTestsChanged, false);
+});
+
 test('rejects compilation failure rather than counting it as RED', async (t) => {
 	const result = await evaluate(t, (dir) =>
 		fs.appendFileSync(path.join(dir, 'main_test.go'), newTest.replace('cmd :=', 'cmd =')));
