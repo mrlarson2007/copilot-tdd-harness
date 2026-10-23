@@ -38,12 +38,20 @@ function Invoke-Promptfoo {
     return $LASTEXITCODE
 }
 
-function Get-DefaultOutput([string]$Config) {
-    switch ($Config) {
-        "promptfooconfig.yaml" { return "results/promptfoo-benchmark.json" }
-        "promptfooconfig.extended.yaml" { return "results/promptfoo-extended-benchmark.json" }
-        default { return $null }
+function Get-ConfigOutputPaths([string]$Config) {
+    $configFile = if ([System.IO.Path]::IsPathRooted($Config)) { $Config } else { Join-Path (Get-Location) $Config }
+    $paths = @()
+    $inOutputPath = $false
+    foreach ($line in Get-Content -LiteralPath $configFile) {
+        if ($line -match '^\s*outputPath:\s*$') {
+            $inOutputPath = $true
+        } elseif ($inOutputPath -and $line -match '^\s+-\s*(.+?)\s*$') {
+            $paths += $Matches[1].Trim("'`"")
+        } elseif ($inOutputPath -and $line -match '^\S') {
+            break
+        }
     }
+    return $paths
 }
 
 function ConvertTo-SafeSegment([string]$Value) {
@@ -79,10 +87,7 @@ try {
                 $modelName = if ($m) { $m } else { "default" }
                 $runFile = "results/runs/$stamp-$(ConvertTo-SafeSegment $configName)-$cond-$(ConvertTo-SafeSegment $modelName).json"
 
-                $outputs = @()
-                $defaultOutput = Get-DefaultOutput $config
-                if ($defaultOutput) { $outputs += $defaultOutput }
-                $outputs += $runFile
+                $outputs = @(Get-ConfigOutputPaths $config) + $runFile
 
                 $promptfooArgs = @("eval", "-c", $config)
                 if ($Repeat -gt 0) { $promptfooArgs += @("--repeat", "$Repeat") }

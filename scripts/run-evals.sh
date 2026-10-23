@@ -111,12 +111,17 @@ run_promptfoo() {
   npx --prefix "$tooling_dir" promptfoo "$@"
 }
 
-default_output_for() {
-  case "$1" in
-    promptfooconfig.yaml) echo "results/promptfoo-benchmark.json" ;;
-    promptfooconfig.extended.yaml) echo "results/promptfoo-extended-benchmark.json" ;;
-    *) echo "" ;;
-  esac
+config_output_paths() {
+  awk '
+    /^[[:space:]]*outputPath:[[:space:]]*$/ { in_output = 1; next }
+    in_output && /^[[:space:]]*-[[:space:]]+/ {
+      sub(/^[[:space:]]*-[[:space:]]+/, "")
+      gsub(/^["\047]|["\047]$/, "")
+      print
+      next
+    }
+    in_output && /^[^[:space:]#]/ { exit }
+  ' "$1"
 }
 
 sanitize() {
@@ -156,8 +161,9 @@ for config in "${configs[@]}"; do
       run_file="results/runs/${stamp}-$(sanitize "$config_name")-${condition}-$(sanitize "${model:-default}").json"
 
       outputs=()
-      default_output="$(default_output_for "$config")"
-      [[ -n "$default_output" ]] && outputs+=("$default_output")
+      while IFS= read -r output; do
+        [[ -n "$output" ]] && outputs+=("$output")
+      done < <(config_output_paths "$config")
       outputs+=("$run_file")
 
       args=(eval -c "$config")
