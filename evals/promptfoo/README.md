@@ -314,16 +314,31 @@ Jev scoring step receives the `TYPESAFE_API_KEY` secret and
 public fixture evidence to TypeSafe. Copilot credentials are not supplied to
 scoring. Promptfoo caching is disabled.
 
-After scoring, view the deterministic report in the score job's **Actions
-summary**, or download `jev-scores/jev-recorded-report.md` from the run's
+After scoring, open the workflow run's **Summary** to view the score job's
+Markdown scorecard directly, or download `jev-scores/jev-recorded-report.md` from the run's
 `jev-scores` artifact. The formatter always runs after scoring and before the
 independent completion gate; its CLI also appends the report to the job summary.
 The always-uploaded artifact retains the raw `promptfoo-jev-recorded.json` and
 `jev-recorded-score.json` alongside the Markdown report, using only fixed paths
 and one-day retention.
 
-The report shows all four phases (RED, GREEN, COMMIT, REFACTOR), with raw scores
-of 0–2 and `noul` probabilities of yes of 0–1, without thresholds or averages.
+The scorecard identifies the recorded revision, fixture, scenario, execution
+status, and collection status. A compact table shows judgments for all four
+phases (RED, GREEN, COMMIT, REFACTOR); expand each phase's question details for
+criteria labels, confidence, diagnostics, recorded model, timing, and token usage.
+Raw criteria scores of 0–2 (including fractional values) remain separate from
+`noul` probabilities of yes of 0–1, without thresholds or averages. Unavailable
+or invalid answers remain unavailable, and incomplete runs retain diagnostics.
+Only the recorded Jev results supply values: there are no prototype sample
+scores, model rankings, harness/baseline comparisons, or inferred lift.
+
+This adapts the scan-friendly overview and expandable details from the
+`site/` prototypes to GitHub-supported Markdown, not an interactive HTML
+dashboard. Those prototypes and `scripts/build-eval-report.js` use a separate
+data contract and are not inputs to the Jev summary. **Only new workflow runs
+using the updated formatter show this layout; existing run summaries do not
+update retroactively.**
+
 The workflow independently requires every raw report row's
 `response.output.status` to be `complete`, even if Promptfoo displays an
 assertion-free green row. Missing/malformed/unavailable/incomplete results fail;
@@ -339,6 +354,8 @@ service credentials:
 
 ```bash
 node --test /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/promptfoo/jev-recorded.test.js \
+  /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/promptfoo/jev-report.test.js \
+  /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/promptfoo/jev-workflow.test.js \
   /home/runner/work/copilot-tdd-harness/copilot-tdd-harness/evals/fixtures/scenarios/calculator-cli-go/jev-phase-experiment.test.js
 ```
 
