@@ -5,6 +5,7 @@ const path = require('node:path');
 const { questionsForPhase } = require('./jev-scorer');
 
 const [input, output] = process.argv.slice(2);
+const phaseNames = ['red', 'green', 'commit', 'refactor'];
 
 function writeReport(details, hasScores = false, complete = false) {
 	const report = `# Jev Recorded Results Report
@@ -60,7 +61,7 @@ if (!fs.existsSync(input)) {
 			complete = recorded.results.results.every((entry) =>
 				entry?.response?.output?.status === 'complete'
 				&& entry?.response?.output?.collectionStatus === 'collected'
-				&& ['red', 'green', 'commit', 'refactor'].every((phase) =>
+				&& phaseNames.every((phase) =>
 					entry?.response?.output?.phases?.[phase]?.status === 'scored'));
 			details = recorded.results.results.map((entry, index) => {
 				if (!isObject(entry) || !isObject(entry.response) || !isObject(entry.response.output)) {
@@ -81,10 +82,10 @@ if (!fs.existsSync(input)) {
 					'',
 					'| Phase | Status | Raw score (0–2) | Noul yes probability (0–1) |',
 					'| --- | --- | --- | --- |',
-					...['red', 'green', 'commit', 'refactor'].map((phase) =>
+					...phaseNames.map((phase) =>
 						`| ${phase.toUpperCase()} | ${display(phases[phase]?.status)} | unavailable | unavailable |`),
 					'',
-					...['red', 'green', 'commit', 'refactor'].map((phase) => {
+					...phaseNames.map((phase) => {
 						const judgment = isObject(phases[phase]) ? phases[phase] : {};
 						const heading = `${phase.toUpperCase()}: status: ${display(judgment.status)}; model: ${display(judgment.response?.model)}`;
 						const usefulNumber = (value) => Number.isFinite(value) && value >= 0 ? value : 'unavailable';
@@ -130,7 +131,7 @@ if (!fs.existsSync(input)) {
 						].join('\n');
 					}).map((details, index) => [
 						'<details>',
-						`<summary>${['RED', 'GREEN', 'COMMIT', 'REFACTOR'][index]} question details</summary>`,
+						`<summary>${phaseNames[index].toUpperCase()} question details</summary>`,
 						'', details, '', '</details>', '',
 					].join('\n')),
 				].join('\n');
