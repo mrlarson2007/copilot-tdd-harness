@@ -18,7 +18,52 @@ The existing completion gate remains authoritative.
 `, 'utf8');
 } else {
 	try {
-		JSON.parse(fs.readFileSync(input, 'utf8'));
+		const recorded = JSON.parse(fs.readFileSync(input, 'utf8'));
+		const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+		const display = (value) => typeof value === 'string' && value.trim() ? value : 'unavailable';
+		let details;
+		if (isObject(recorded) && recorded.results === undefined) {
+			details = 'The recorded-results wrapper results.results is absent.';
+		} else if (!isObject(recorded) || !isObject(recorded.results)) {
+			details = 'The recorded-results wrapper results.results is malformed.';
+		} else if (recorded.results.results === undefined) {
+			details = 'The recorded-results wrapper results.results is absent.';
+		} else if (!Array.isArray(recorded.results.results)) {
+			details = 'The recorded-results wrapper results.results is malformed.';
+		} else if (recorded.results.results.length === 0) {
+			details = 'The recorded-results wrapper results.results is empty.';
+		} else {
+			details = recorded.results.results.map((entry, index) => {
+				if (!isObject(entry) || !isObject(entry.response) || !isObject(entry.response.output)) {
+					return `Result ${index + 1}: response.output is absent or malformed; recorded execution unavailable.`;
+				}
+				const execution = entry.response.output;
+				const phases = isObject(execution.phases) ? execution.phases : {};
+				return [
+					`Revision: ${display(execution.revision)}`,
+					`Fixture: ${display(execution.fixtureId)}`,
+					`Scenario: ${display(execution.scenarioId)}`,
+					`Execution status: ${display(execution.status)}`,
+					`Collection status: ${display(execution.collectionStatus)}`,
+					'',
+					...['red', 'green', 'commit', 'refactor'].map((phase) => {
+						const judgment = isObject(phases[phase]) ? phases[phase] : {};
+						return `${phase.toUpperCase()}: status: ${display(judgment.status)}; model: ${display(judgment.response?.model)}`;
+					}),
+				].join('\n');
+			}).join('\n\n');
+		}
+		fs.writeFileSync(output, `# Jev Recorded Results Report
+
+Status: incomplete
+
+${details}
+
+Scores: unavailable. No scores were invented.
+
+This diagnostic does not indicate a completed evaluation.
+The existing completion gate remains authoritative.
+`, 'utf8');
 	} catch (error) {
 		if (!(error instanceof SyntaxError)) throw error;
 		fs.writeFileSync(output, `# Jev Recorded Results Report
