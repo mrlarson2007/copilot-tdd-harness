@@ -100,3 +100,56 @@ test('WhenRecordedExecutionIsIncomplete_ShouldReportIdentityStatusesAndUnavailab
 	assert.doesNotMatch(report, /\b\d+(?:\.\d+)?\s*(?:%|\/\s*\d+)|\bscore\s*:\s*\d/i);
 	assert.equal(fs.readFileSync(input, 'utf8'), rawInput, 'Reporting must not change recorded results');
 });
+
+test('WhenUntrustedRecordedValuesContainMarkup_ShouldRenderLiteralTextWithoutDisclosingEvidence', (t) => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
+	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const input = path.join(dir, 'recorded-results.json');
+	const output = path.join(dir, 'report.md');
+	const secret = 'PRIVATE_EVIDENCE_SENTINEL';
+	const rawInput = JSON.stringify({ results: { results: [{ response: { output: {
+		revision: 'rev\r\n# injected heading',
+		fixtureId: '[fixture](https://example.invalid) <img src=x onerror=alert(1)>',
+		scenarioId: 'scenario\n| injected | table |\n---\t\u0000\u007f\u0085\u2028\u2029\u202e',
+		status: '**incomplete**\u001b[31m',
+		collectionStatus: '&lt;script&gt; `collection`',
+		phases: {
+			red: {
+				status: '_scored_',
+				response: { model: '![model](https://example.invalid)\\~{x}+!' },
+				request: { state: { evidence: secret }, source: secret },
+				evidence: { state: secret },
+				error: { body: secret },
+			},
+		},
+		request: { state: { evidence: secret }, source: secret },
+		source: secret,
+		evidence: { state: secret },
+		error: { body: secret },
+	} } }] } });
+	fs.writeFileSync(input, rawInput, 'utf8');
+
+	const result = spawnSync(process.execPath, [
+		path.join(__dirname, 'jev-report.js'), input, output,
+	], { encoding: 'utf8' });
+
+	assert.equal(result.error, undefined);
+	assert.equal(result.status, 0);
+	const report = fs.readFileSync(output, 'utf8');
+	const expectedLines = [
+		'Revision: rev\\# injected heading',
+		'Fixture: \\[fixture\\]\\(https://example.invalid\\) &lt;img src=x onerror=alert\\(1\\)&gt;',
+		'Scenario: scenario\\| injected \\| table \\|---',
+		'Execution status: \\*\\*incomplete\\*\\*\\[31m',
+		'Collection status: &amp;lt;script&amp;gt; \\`collection\\`',
+		'RED: status: \\_scored\\_; model: \\!\\[model\\]\\(https://example.invalid\\)\\\\\\~\\{x\\}\\+\\!',
+	];
+	for (const line of expectedLines) {
+		assert.ok(report.split('\n').includes(line), `Untrusted text must be escaped on its report line: ${line}`);
+	}
+	assert.deepEqual(report.match(/^#.*$/gm), ['# Jev Recorded Results Report']);
+	assert.doesNotMatch(report, /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029\u202e]/u);
+	assert.doesNotMatch(report + result.stdout + result.stderr, /PRIVATE_EVIDENCE_SENTINEL|\b(?:request|source|evidence|error)\b|<img/);
+	assert.match(report, /Scores: unavailable\. No scores were invented\./);
+	assert.equal(fs.readFileSync(input, 'utf8'), rawInput, 'Reporting must not change recorded results');
+});

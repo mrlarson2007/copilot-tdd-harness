@@ -24,7 +24,16 @@ if (!fs.existsSync(input)) {
 	try {
 		const recorded = JSON.parse(fs.readFileSync(input, 'utf8'));
 		const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
-		const display = (value) => typeof value === 'string' && value.trim() ? value : 'unavailable';
+		const display = (value) => {
+			const text = typeof value === 'string'
+				? value.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, '')
+				: '';
+			return text.trim() ? text
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/[\\`*_[\]{}()#+!|~]/g, '\\$&') : 'unavailable';
+		};
 		let details;
 		if (isObject(recorded) && recorded.results === undefined) {
 			details = 'The recorded-results wrapper results.results is absent.';
