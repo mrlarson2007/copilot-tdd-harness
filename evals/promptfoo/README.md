@@ -269,10 +269,12 @@ It never runs automatically for pull requests. Before enabling it:
    both jobs. Remove it or set it to `false` to disable future runs.
 
 In **Actions → Jev Live Evaluation → Run workflow**, select the default branch
-and enter its reviewed current **40-character hexadecimal commit SHA** as
-`reviewed_sha`. It must exactly equal the dispatch revision (`github.sha`);
-arbitrary checkout refs and non-default-branch dispatches are not accepted. Both
-jobs check out that immutable SHA, not a moving branch. If the branch advances
+and leave `reviewed_sha` blank to use that branch's tip captured at dispatch
+(`github.sha`). As an optional safety check, enter the reviewed current
+**40-character hexadecimal commit SHA**; it must exactly match the dispatch
+revision, including case. Older revisions, arbitrary checkout refs, and
+non-default-branch dispatches are not accepted. Both jobs check out the immutable
+dispatch SHA, never a moving "latest" resolved later. If the branch advances
 before dispatch, review the new revision before trying again.
 
 There are **two approval boundaries**: approve `jev-agent` to collect evidence,
