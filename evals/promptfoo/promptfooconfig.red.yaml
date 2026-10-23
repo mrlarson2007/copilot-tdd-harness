@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Real RED skill in isolation, verified from disposable Go and Git artifacts.
+
+prompts:
+  - Run the RED-only subtract scenario.
+
+providers:
+  - id: file://./benchmark-provider.js
+    label: red-only-artifact-evaluator
+
+evaluateOptions:
+  maxConcurrency: 1
+
+tests:
+  - description: calculator-cli-go RED-only subtract
+    threshold: 1
+    vars:
+      fixtureId: calculator-cli-go
+      baselineId: clean
+      scenarioId: red-only-subtract
+      scenarioFamily: red-phase
+      runMode: red-only
+      fixtureSourcePath: ../fixtures/projects/calculator-cli-go/clean
+      scenarioModulePath: ../fixtures/scenarios/calculator-cli-go/red-only.js
+      artifactOutputDir: ./results/red-artifacts
+    assert:
+      - type: javascript
+        value: file://./assertions/red-only.js
+        metric: red_artifact_verification
+
+outputPath:
+  - results/promptfoo-red.json

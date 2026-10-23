@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 
 // This file lives at evals/fixtures/scenarios/agent-runner.js — 3 levels up is the repo root.
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -80,21 +80,24 @@ function runCopilotAgent(workspaceDir, prompt, options = {}) {
   const progressLabel = options.progressLabel || path.basename(workspaceDir);
   const heartbeatMs = options.heartbeatMs ?? 15 * 1000;
   const agentName = options.agentName || 'tdd';
+  const processGroup = Boolean(options.processGroup) && process.platform !== 'win32';
   const questionDetector = createQuestionDetector();
 
   return new Promise((resolve) => {
     const proc = spawn('copilot', [
-      `--agent=${agentName}`,
+      ...(options.agentName === false ? [] : [`--agent=${agentName}`]),
       '--prompt', prompt,
       '--allow-all-tools',
     ], {
       cwd: workspaceDir,
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached: processGroup,
     });
 
     let output = '';
     let settled = false;
     let killedForClarification = false;
+    let timedOut = false;
     const startedAt = Date.now();
 
     logRunnerProgress(progressLabel, `starting prompt: ${JSON.stringify(prompt)}`);
@@ -109,7 +112,7 @@ function runCopilotAgent(workspaceDir, prompt, options = {}) {
       clearTimeout(timeoutHandle);
 
       const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
-      const resolvedExitCode = exitCode ?? (killedForClarification ? 2 : -1);
+      const resolvedExitCode = timedOut ? -1 : (exitCode ?? (killedForClarification ? 2 : -1));
       logRunnerProgress(
         progressLabel,
         `finished in ${elapsedSeconds}s with exit code ${resolvedExitCode}${killedForClarification ? ' (clarification detected)' : ''}`,
@@ -135,7 +138,10 @@ function runCopilotAgent(workspaceDir, prompt, options = {}) {
     proc.stderr.on('data', appendOutput);
 
     proc.on('close', (code) => finish(code));
-    proc.on('error', () => finish(1));
+    proc.on('error', (error) => {
+      output += `\n${error.message}`;
+      finish(1);
+    });
 
     const heartbeatHandle = setInterval(() => {
       const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
@@ -144,6 +150,23 @@ function runCopilotAgent(workspaceDir, prompt, options = {}) {
 
     const timeoutHandle = setTimeout(() => {
       logRunnerProgress(progressLabel, `timed out after ${Math.round(timeout / 1000)}s`);
+      if (options.processGroup) {
+        timedOut = true;
+        if (proc.pid) {
+          try {
+            if (processGroup) {
+              process.kill(-proc.pid, 'SIGKILL');
+            } else {
+              execFileSync('taskkill', ['/pid', String(proc.pid), '/T', '/F']);
+            }
+          } catch (error) {
+            output += `\nUnable to stop agent process tree: ${error.message}`;
+            proc.kill('SIGKILL');
+          }
+        }
+        // Wait for close before collecting artifacts from the workspace.
+        return;
+      }
       proc.kill();
       finish(-1);
     }, timeout);

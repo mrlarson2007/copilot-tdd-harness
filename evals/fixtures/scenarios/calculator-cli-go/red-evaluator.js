@@ -91,6 +91,23 @@ function listTests(dir) {
 	return command(dir, 'go', ['test', '-list', '^Test', './...']);
 }
 
+function unchangedGit(before, after) {
+	return ['head', 'reflog', 'refs', 'objects', 'config'].every((key) => {
+		const normalize = (result) => key === 'objects'
+			? result.output.split('\n').filter((line) => line.endsWith(' commit')).sort().join('\n')
+			: result.output;
+		return succeeded(before[key]) && succeeded(after[key])
+			&& normalize(before[key]) === normalize(after[key]);
+	}) && isDeepStrictEqual(before.rawLogs, after.rawLogs);
+}
+
+function captureVerificationState(dir, baseline, red, checks) {
+	red.afterVerification = { files: snapshot(dir), git: gitEvidence(dir) };
+	checks.noCommits = unchangedGit(baseline.git, red.git)
+		&& unchangedGit(baseline.git, red.afterVerification.git);
+	checks.verificationPreservesWorkspace = isDeepStrictEqual(red.files, red.afterVerification.files);
+}
+
 async function evaluateRed(dir, runAgent) {
 	const checks = {};
 	const evidence = {
@@ -137,17 +154,11 @@ async function evaluateRed(dir, runAgent) {
 			&& Buffer.from(after.content, 'base64').subarray(0, Buffer.from(before.content, 'base64').length)
 				.equals(Buffer.from(before.content, 'base64'));
 	});
-	checks.noCommits = ['head', 'reflog', 'refs', 'objects', 'config'].every((key) =>
-		succeeded(baseline.git[key]) && succeeded(red.git[key])
-		&& (key === 'objects'
-			? baseline.git[key].output.split('\n').filter((line) => line.endsWith(' commit')).sort().join('\n')
-				=== red.git[key].output.split('\n').filter((line) => line.endsWith(' commit')).sort().join('\n')
-			: baseline.git[key].output === red.git[key].output))
-		&& isDeepStrictEqual(baseline.git.rawLogs, red.git.rawLogs);
 	red.existing = goTests(dir, pattern(existing));
 	checks.existingTestsPass = succeeded(red.existing)
 		&& isDeepStrictEqual(names(red.existing, 'pass'), existing)
 		&& names(red.existing, 'skip').length === 0;
+	captureVerificationState(dir, baseline, red, checks);
 	if (!checks.oneNewTest) return { pass: false, checks, evidence, agent };
 
 	red.selected = goTests(dir, pattern(additions));
@@ -164,20 +175,26 @@ async function evaluateRed(dir, runAgent) {
 		&& isDeepStrictEqual(names(red.suite, 'fail'), additions)
 		&& isDeepStrictEqual(names(red.suite, 'pass'), existing)
 		&& isDeepStrictEqual(names(red.suite, 'run'), [...existing, ...additions].sort());
+	captureVerificationState(dir, baseline, red, checks);
 
 	// Capture RED evidence above before the evaluator (not the agent) applies GREEN.
-	if (checks.onlyTestsChanged && checks.noCommits) {
+	if (checks.onlyTestsChanged && checks.noCommits && checks.verificationPreservesWorkspace) {
 		const mainPath = path.join(dir, 'main.go');
 		const original = fs.readFileSync(mainPath);
 		try {
 			addSubtractImplementation(dir);
+			const expectedFiles = snapshot(dir);
 			evidence.knownImplementation = {
 				production: fs.readFileSync(mainPath, 'utf8'),
 				selected: goTests(dir, pattern(additions)),
 				suite: goTests(dir),
 				files: snapshot(dir),
+				git: gitEvidence(dir),
 			};
 			const known = evidence.knownImplementation;
+			checks.noCommits = checks.noCommits && unchangedGit(baseline.git, known.git);
+			checks.verificationPreservesWorkspace = checks.verificationPreservesWorkspace
+				&& isDeepStrictEqual(expectedFiles, known.files);
 			checks.usefulWithKnownImplementation = succeeded(known.selected) && succeeded(known.suite)
 				&& isDeepStrictEqual(names(known.selected, 'pass'), additions)
 				&& isDeepStrictEqual(names(known.suite, 'pass'), [...existing, ...additions].sort())

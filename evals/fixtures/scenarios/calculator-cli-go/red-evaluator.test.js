@@ -144,3 +144,13 @@ test('rejects two new tests', async (t) => {
 	assert.equal(result.pass, false);
 	assert.equal(result.checks.oneNewTest, false);
 });
+
+test('detects commits created by agent-authored Go code during verification', async (t) => {
+	const result = await evaluate(t, (dir) => fs.appendFileSync(path.join(dir, 'main_test.go'), newTest + `
+func init() {
+	exec.Command("git", "commit", "--quiet", "--allow-empty", "-m", "commit from test initialization").Run()
+}
+`));
+	assert.equal(result.pass, false);
+	assert.equal(result.checks.noCommits, false);
+});
