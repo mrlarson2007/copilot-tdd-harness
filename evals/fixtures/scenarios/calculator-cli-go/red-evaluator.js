@@ -231,4 +231,4 @@ async function evaluateRed(dir, runAgent) {
 	return { pass: Object.values(checks).every(Boolean), checks, evidence, agent };
 }
 
-module.exports = { evaluateRed };
+module.exports = { evaluateRed, command, snapshot, gitEvidence, goTests };

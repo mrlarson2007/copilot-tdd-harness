@@ -92,6 +92,7 @@ function runCopilotAgent(workspaceDir, prompt, options = {}) {
       cwd: workspaceDir,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: processGroup,
+      env: options.env || process.env,
     });
 
     let output = '';
