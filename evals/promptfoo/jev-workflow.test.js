@@ -131,3 +131,38 @@ test('WhenScoringJev_ShouldAlwaysPublishDiagnosticReportWithoutChangingCompletio
 	assert.match(artifact, /^          name: jev-scores$/m);
 	assert.match(artifact, /^          path: \|\n            evals\/promptfoo\/results\/promptfoo-jev-recorded\.json\n            evals\/promptfoo\/results\/jev-recorded-score\.json\n            evals\/promptfoo\/results\/jev-recorded-report\.md\n          if-no-files-found: warn$/m);
 });
+
+test('WhenPublishingPages_ShouldIsolateSanitizedReportsAndDeployOnlySuccessfulTrustedRuns', () => {
+	const workflow = fs.readFileSync(path.join(__dirname, '../../.github/workflows/jev-live-eval.yml'), 'utf8');
+	const report = workflow.match(/^  report:\n([\s\S]*?)(?=^  publish:)/m)?.[1];
+	const publish = workflow.match(/^  publish:\n([\s\S]*)/m)?.[1];
+	assert.ok(report, 'A fresh report job must sanitize scoring data without service credentials');
+	assert.ok(publish, 'A separate job must hold Pages deployment permissions');
+	for (const [section, prerequisite] of [[report, 'score'], [publish, 'report']]) {
+		assert.match(section, new RegExp(`^    needs: ${prerequisite}$`, 'm'));
+		for (const safeguard of [
+			`needs.${prerequisite}.result == 'success'`,
+			"github.event_name == 'workflow_dispatch'",
+			"github.ref == format('refs/heads/{0}', github.event.repository.default_branch)",
+			"(inputs.reviewed_sha == '' || inputs.reviewed_sha == github.sha)",
+			"vars.JEV_LIVE_ENABLED == 'true'",
+		]) assert.ok(section.includes(safeguard), safeguard);
+		assert.doesNotMatch(section, /secrets[.[{]|continue-on-error|if: \$\{\{ always\(\) \}\}/);
+	}
+	assert.match(report, /ref: \$\{\{ github.sha \}\}\n          persist-credentials: false/);
+	assert.match(report, /uses: actions\/download-artifact@[0-9a-f]{40}/);
+	assert.match(report, /name: jev-scores\n          path: \$\{\{ runner.temp \}\}\/jev-scores/);
+	assert.ok(report.includes('node "$GITHUB_WORKSPACE/evals/promptfoo/jev-pages.js" "$RUNNER_TEMP/jev-scores/promptfoo-jev-recorded.json" "$RUNNER_TEMP/jev-pages"'));
+	assert.match(report, /uses: actions\/upload-pages-artifact@[0-9a-f]{40}/);
+	assert.match(report, /path: \$\{\{ runner.temp \}\}\/jev-pages/);
+	assert.doesNotMatch(report, /pages: write|id-token: write/);
+	assert.match(publish, /permissions:\n      pages: write\n      id-token: write/);
+	assert.match(publish, /environment:\n      name: github-pages\n      url: \$\{\{ steps.deployment.outputs.page_url \}\}/);
+	assert.match(publish, /id: deployment\n        uses: actions\/deploy-pages@[0-9a-f]{40}/);
+	assert.doesNotMatch(publish, /actions\/checkout|download-artifact|jev-evidence|jev-scores/);
+	assert.match(publish, /PAGE_URL: \$\{\{ steps.deployment.outputs.page_url \}\}/);
+	for (const link of ['Latest evaluation results', 'jev.html', 'promptfoo.html']) {
+		assert.ok(publish.includes(link), `Summary links to ${link}`);
+	}
+	assert.match(publish, />> "\$GITHUB_STEP_SUMMARY"/);
+});

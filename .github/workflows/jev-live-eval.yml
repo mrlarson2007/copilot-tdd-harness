@@ -149,3 +149,75 @@ jobs:
             evals/promptfoo/results/jev-recorded-report.md
           if-no-files-found: warn
           retention-days: 1
+
+  report:
+    needs: score
+    if: >-
+      needs.score.result == 'success' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      (inputs.reviewed_sha == '' || inputs.reviewed_sha == github.sha) &&
+      vars.JEV_LIVE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout reviewed report generator
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Download scoring reports only
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: jev-scores
+          path: ${{ runner.temp }}/jev-scores
+
+      - name: Generate allowlisted public HTML
+        shell: bash
+        run: node "$GITHUB_WORKSPACE/evals/promptfoo/jev-pages.js" "$RUNNER_TEMP/jev-scores/promptfoo-jev-recorded.json" "$RUNNER_TEMP/jev-pages"
+
+      - name: Upload sanitized Pages site only
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: ${{ runner.temp }}/jev-pages
+
+  publish:
+    needs: report
+    if: >-
+      needs.report.result == 'success' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      (inputs.reviewed_sha == '' || inputs.reviewed_sha == github.sha) &&
+      vars.JEV_LIVE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy evaluation reports
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+
+      - name: Link published reports
+        shell: bash
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          {
+            echo "## Published evaluation reports"
+            echo "- [Latest evaluation results](${PAGE_URL%/}/)"
+            echo "- [Jev HTML scorecard](${PAGE_URL%/}/jev.html)"
+            echo "- [Promptfoo HTML report](${PAGE_URL%/}/promptfoo.html)"
+            echo
+            echo "These URLs show the latest successful publication; check the report's run metadata."
+          } >> "$GITHUB_STEP_SUMMARY"
