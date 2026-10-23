@@ -1,12 +1,13 @@
 'use strict';
 
 const fs = require('node:fs');
+const path = require('node:path');
 const { questionsForPhase } = require('./jev-scorer');
 
 const [input, output] = process.argv.slice(2);
 
 function writeReport(details, hasScores = false, complete = false) {
-	fs.writeFileSync(output, `# Jev Recorded Results Report
+	const report = `# Jev Recorded Results Report
 
 Status: ${complete ? 'complete' : 'incomplete'}
 
@@ -19,7 +20,12 @@ Complete execution does not imply a favorable judgment.` : 'Scores: unavailable.
 
 This diagnostic does not indicate a completed evaluation.
 The existing completion gate remains authoritative.
-`, 'utf8');
+`;
+	fs.mkdirSync(path.dirname(output), { recursive: true });
+	fs.writeFileSync(output, report, 'utf8');
+	if (process.env.GITHUB_STEP_SUMMARY) {
+		fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, report, 'utf8');
+	}
 }
 
 if (!fs.existsSync(input)) {

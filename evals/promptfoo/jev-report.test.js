@@ -8,6 +8,49 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { questionsForPhase } = require('./jev-scorer');
 
+test('WhenReportingToMissingOutputDirectories_ShouldAppendIdenticalMarkdownToExistingSummaryWhenSet', (t) => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-summary-test-'));
+	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+	const summary = path.join(dir, 'summary.md');
+	let expectedSummary = Buffer.from('Existing summary: résumé\n');
+	fs.writeFileSync(summary, expectedSummary);
+
+	for (const recorded of [false, true]) {
+		for (const withSummary of [true, false]) {
+			const results = path.join(dir, `${recorded}-${withSummary}`, 'results');
+			const input = path.join(results, 'raw', 'recorded-results.json');
+			const output = path.join(results, 'reports', 'nested', 'report.md');
+			assert.equal(fs.existsSync(results), false, 'Results directory starts absent');
+			if (recorded) {
+				fs.mkdirSync(path.dirname(input), { recursive: true });
+				fs.writeFileSync(input, JSON.stringify({ results: { results: [{ response: { output: {
+					revision: 'recorded-revision', fixtureId: 'fixture', scenarioId: 'scenario',
+					status: 'complete', collectionStatus: 'complete', phases: {},
+				} } }] } }));
+			}
+			const env = { ...process.env };
+			delete env.GITHUB_STEP_SUMMARY;
+			if (withSummary) env.GITHUB_STEP_SUMMARY = summary;
+			const result = spawnSync(process.execPath, [
+				path.join(__dirname, 'jev-report.js'), input, output,
+			], { encoding: 'utf8', env });
+
+			assert.equal(result.error, undefined);
+			assert.equal(result.status, 0, `Reporting must create nested output parents: ${result.stderr}`);
+			const report = fs.readFileSync(output);
+			assert.match(report.toString('utf8'), /^# Jev Recorded Results Report\n/);
+			assert.match(report.toString('utf8'), recorded
+				? /Status: complete\n[\s\S]*Revision: recorded-revision/
+				: /Status: incomplete\n[\s\S]*The recorded-results JSON is missing\./);
+			if (withSummary) expectedSummary = Buffer.concat([expectedSummary, report]);
+			assert.deepEqual(fs.readFileSync(summary), expectedSummary,
+				'Preserve existing bytes and append exactly the standalone report only when configured');
+			assert.equal(fs.existsSync(input), recorded, 'Missing recorded results must remain absent');
+			if (!recorded) assert.equal(fs.existsSync(path.dirname(input)), false);
+		}
+	}
+});
+
 test('WhenScoredPhasesAreRecorded_ShouldRenderDeterministicTypedJudgmentsWithoutInventingAnswers', (t) => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jev-report-test-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
