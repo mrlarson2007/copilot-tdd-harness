@@ -280,9 +280,47 @@ test('WhenReleaseRuns_ShouldValidatePullRequestsAndPublishOnlyTheDeclaredVersion
       env: { ...process.env, INPUT_VERSION: input, GITHUB_OUTPUT: output },
       encoding: 'utf8',
     });
+
     assert.equal(result.status, expected, result.stderr);
     if (expected === 0) {
       assert.match(fs.readFileSync(output, 'utf8'), new RegExp(`^version=${version.replaceAll('.', '\\.')}$`, 'm'));
     }
+  }
+});
+
+test('WhenManualInstallersRun_ShouldSkipMarketplaceMetadataAndPreserveExistingProjectFiles', (t) => {
+  for (const [command, script, args] of [
+    ['bash', 'install-tdd-harness.sh', []],
+    ['pwsh', 'install-tdd-harness.ps1', ['-NoLogo', '-NoProfile', '-File']],
+  ]) {
+    const probe = spawnSync(command, [command === 'bash' ? '--version' : '-Version']);
+    if (probe.error?.code === 'ENOENT') continue;
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'copilot-manual-install-test-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const source = path.join(directory, 'source');
+    const target = path.join(directory, 'target');
+    const scriptPath = path.join(source, 'scripts', script);
+    fs.mkdirSync(path.dirname(scriptPath), { recursive: true });
+    fs.copyFileSync(path.join(root, 'scripts', script), scriptPath);
+    for (const [file, content] of [
+      ['.github/plugin/marketplace.json', '{}'],
+      ['.github/instructions/tdd-patterns.instructions.md', 'source-specific patterns'],
+      ['.github/skills/tdd-red/SKILL.md', 'bundled RED'],
+      ['.github/skills/tdd-green/SKILL.md', 'bundled GREEN'],
+    ]) {
+      const filePath = path.join(source, file);
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, content);
+    }
+    const existing = path.join(target, '.github/skills/tdd-red/SKILL.md');
+    fs.mkdirSync(path.dirname(existing), { recursive: true });
+    fs.writeFileSync(existing, 'user RED');
+    const result = spawnSync(command, [...args, scriptPath, target], { encoding: 'utf8' });
+
+    assert.equal(result.status, 0, `${command}: ${result.stderr}`);
+    assert.equal(fs.existsSync(path.join(target, '.github/plugin')), false, command);
+    assert.equal(fs.existsSync(path.join(target, '.github/instructions/tdd-patterns.instructions.md')), false, command);
+    assert.equal(fs.readFileSync(existing, 'utf8'), 'user RED', command);
+    assert.equal(fs.readFileSync(path.join(target, '.github/skills/tdd-green/SKILL.md'), 'utf8'), 'bundled GREEN', command);
   }
 });
