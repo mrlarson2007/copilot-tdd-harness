@@ -5,8 +5,6 @@ description: |
   Guides the orchestration of a single TDD cycle (Red → Green → Commit → Refactor) for a scenario slice. Defines contract handoffs, escalation, and progressive context disclosure. Specifies how to load and reference phase skills and assets.
 role: orchestrator-skill
 user-invocable: false
-related_agents:
-  - tdd-cycle-runner.agent.md
 contracts:
   - red_request
   - red_result
@@ -23,6 +21,11 @@ contracts:
 ---
 
 # TDD Cycle Runner Skill
+
+Run phases in the current agent using the installed skills. No phase agents are required.
+Load sibling skills by name, or resolve `../<skill-name>/SKILL.md` relative to
+this SKILL.md. Resolve each skill's bundled assets relative to that skill.
+Read project-specific patterns from the working repository, never the plugin cache.
 
 ## Workflow
 1. Receive `start_cycle` contract from main orchestrator

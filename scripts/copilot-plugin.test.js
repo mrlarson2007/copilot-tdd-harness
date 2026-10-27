@@ -37,3 +37,31 @@ test('WhenMarketplaceIsRegistered_ShouldDiscoverOneCompleteVersionedTddPlugin', 
     assert.match(skill, /\ndescription: [>|]?\n? +\S/, name);
   }
 });
+
+test('WhenSkillsAreCachedOutsideProject_ShouldKeepBundledAssetsReadOnlyAndProjectPatternsLocal', () => {
+  const skills = path.join(root, '.github', 'skills');
+  const setup = fs.readFileSync(path.join(skills, 'tdd-setup', 'SKILL.md'), 'utf8');
+  assert.ok(setup.includes('`./templates/`'), 'templates must be skill-relative');
+  assert.ok(setup.includes('Treat the installed skill directory as read-only.'));
+  assert.ok(setup.includes('Never overwrite an existing project file without explicit confirmation.'));
+  for (const [phase, asset] of [
+    ['red', 'project-testing-patterns.md'],
+    ['green', 'project-code-style-patterns.md'],
+    ['refactor', 'project-refactor-patterns.md'],
+    ['test-run', 'project-test-run-patterns.md'],
+  ]) {
+    const skill = fs.readFileSync(path.join(skills, `tdd-${phase}`, 'SKILL.md'), 'utf8');
+    const projectPath = `.github/tdd-harness/${asset}`;
+    assert.ok(setup.includes(projectPath), `setup must generate ${projectPath}`);
+    assert.ok(skill.includes(projectPath), `phase must read ${projectPath}`);
+    assert.ok(skill.includes(`\`./assets/${asset}\``), `missing relative fallback for ${phase}`);
+    assert.ok(fs.existsSync(path.join(skills, `tdd-${phase}`, 'assets', asset)));
+    assert.ok(skill.includes('relative to this SKILL.md'));
+    assert.ok(skill.includes('Never write to the bundled fallback.'));
+  }
+  const workflow = fs.readFileSync(path.join(skills, 'tdd-workflow', 'SKILL.md'), 'utf8');
+  assert.ok(workflow.includes('Only activate when the user explicitly requests TDD'));
+  const cycle = fs.readFileSync(path.join(skills, 'tdd-cycle-runner', 'SKILL.md'), 'utf8');
+  assert.ok(cycle.includes('No phase agents are required.'));
+  assert.ok(!cycle.includes('related_agents:'));
+});

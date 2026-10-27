@@ -22,14 +22,21 @@ contracts:
 - Failing test id
 - Skill and asset references
 - Project code style patterns from `.github/instructions/tdd-patterns.instructions.md`
-- Canonical GREEN style guide placeholder at `.github/skills/tdd-green/assets/project-code-style-patterns.md`
+- Project GREEN style guide at `.github/tdd-harness/project-code-style-patterns.md`
+
+Resolve bundled paths relative to this SKILL.md, not the working directory.
+Read the project style guide first. For manual-install compatibility, fall back
+to the working project's `.github/skills/tdd-green/assets/project-code-style-patterns.md`
+if present, then to the bundled `./assets/project-code-style-patterns.md`.
+Never write to the bundled fallback.
 
 ## Outputs
 - Changed production files
 - Test pass summary
 
 ## Steps
-1. Load `.github/skills/tdd-green/assets/project-code-style-patterns.md` first, then load core asset files for minimal implementation, anti-patterns, and commit discipline
+1. Load the style guide using the precedence above, then apply this skill's
+   minimal-implementation and commit guidance
 2. **Check whether the RED test compiles.**
    - If the test references missing production symbols (types, methods, fields), the only allowed edit is the smallest possible compile-only stub — no behavior.
    - Run the narrow test again. It must now compile and fail at runtime/assertion level before proceeding.

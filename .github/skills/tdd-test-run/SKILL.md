@@ -26,7 +26,14 @@ contracts:
 - Expected outcome contract (`fail` or `pass`, relevant test names, expected signal)
 - Files in scope for rollback
 - Project test command guidance from `.github/instructions/tdd-patterns.instructions.md`
-- Canonical test-run guidance placeholder at `.github/skills/tdd-test-run/assets/project-test-run-patterns.md`
+- Project verification guide at `.github/tdd-harness/project-test-run-patterns.md`
+
+Resolve bundled paths relative to this SKILL.md, not the working directory.
+Read the project verification guide first. For manual-install compatibility,
+fall back to the working project's
+`.github/skills/tdd-test-run/assets/project-test-run-patterns.md` if present,
+then to the bundled `./assets/project-test-run-patterns.md`.
+Never write to the bundled fallback.
 
 ## Outputs
 - Verification command output
@@ -34,7 +41,7 @@ contracts:
 - Scoped rollback summary when a mismatch occurs
 
 ## Steps
-1. Load `.github/skills/tdd-test-run/assets/project-test-run-patterns.md` first.
+1. Load the verification guide using the precedence above.
 2. Run the narrowest practical verification command that satisfies the contract.
 3. Compare the observed output with the declared expected result.
 4. If the expected result matches, return `test_run_result` with `status: ok`.
