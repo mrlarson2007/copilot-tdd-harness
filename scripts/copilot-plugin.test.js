@@ -188,3 +188,70 @@ test('WhenReleaseChecksPlugin_ShouldPrintValidatedManifestVersionWithoutBuilding
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), readJson('plugin.json').version);
 });
+
+test('WhenMarketplacePluginIsUpdatedAndRemoved_ShouldPreserveProjectConfigurationAndManualSkills', (t) => {
+  const cli = process.env.COPILOT_PLUGIN_TEST_CLI || 'copilot';
+  const probe = spawnSync(cli, ['--version'], { encoding: 'utf8' });
+  if (probe.error?.code === 'ENOENT') return t.skip('Copilot CLI is not installed');
+  assert.equal(probe.status, 0, probe.stderr);
+
+  const { source } = sourceFixture(t);
+  const directory = path.dirname(source);
+  const project = path.join(directory, 'project');
+  const home = path.join(directory, 'home');
+  fs.mkdirSync(project);
+  fs.mkdirSync(home);
+  const env = {
+    ...process.env,
+    HOME: home,
+    COPILOT_HOME: home,
+    COPILOT_CACHE_HOME: path.join(directory, 'cache'),
+    COPILOT_AUTO_UPDATE: 'false',
+  };
+  const run = (...args) => {
+    const result = spawnSync(cli, args, { cwd: project, env, encoding: 'utf8', timeout: 60000 });
+    assert.equal(result.status, 0, `${args.join(' ')}\n${result.stderr}\n${result.stdout}`);
+    return result.stdout;
+  };
+
+  run('plugin', 'marketplace', 'add', source);
+  const catalog = JSON.parse(run('plugin', 'marketplace', 'browse', 'copilot-tdd-harness', '--json'));
+  assert.ok(JSON.stringify(catalog).includes('copilot-tdd-harness'));
+  run('plugin', 'install', 'copilot-tdd-harness@copilot-tdd-harness');
+  const skills = JSON.parse(run('skill', 'list', '--json')).filter((skill) => skill.source === 'plugin');
+  assert.equal(skills.length, 10);
+  for (const skill of skills) assert.ok(fs.existsSync(path.join(skill.path, 'SKILL.md')));
+  assert.equal(fs.existsSync(path.join(project, '.github')), false, 'install must not modify the project');
+
+  const projectFiles = new Map([
+    ['.github/instructions/tdd-patterns.instructions.md', 'user instructions\n'],
+    ['.github/tdd-harness/project-testing-patterns.md', 'user test patterns\n'],
+    ['.github/skills/tdd-red/SKILL.md', '---\nname: tdd-red\ndescription: User-owned RED skill\n---\n\nManual RED instructions.\n'],
+    ['source.txt', 'user source\n'],
+  ]);
+  for (const [file, content] of projectFiles) {
+    const target = path.join(project, file);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content);
+  }
+  for (const file of ['plugin.json', '.github/plugin/marketplace.json']) {
+    const target = path.join(source, file);
+    const manifest = JSON.parse(fs.readFileSync(target, 'utf8'));
+    if (manifest.plugins) manifest.plugins[0].version = '0.2.1';
+    else manifest.version = '0.2.1';
+    fs.writeFileSync(target, JSON.stringify(manifest));
+  }
+  run('plugin', 'marketplace', 'update', 'copilot-tdd-harness');
+  run('plugin', 'update', 'copilot-tdd-harness');
+  const installed = JSON.parse(run('plugin', 'list', '--json'));
+  assert.equal(installed.find((plugin) => plugin.name === 'copilot-tdd-harness').version, '0.2.1');
+  run('plugin', 'uninstall', 'copilot-tdd-harness');
+  const remaining = JSON.parse(run('plugin', 'list', '--json'));
+  assert.ok(!remaining.some((plugin) => plugin.name === 'copilot-tdd-harness' && plugin.enabled));
+  assert.equal(JSON.parse(run('skill', 'list', '--json')).filter((skill) => skill.source === 'plugin').length, 0);
+  run('plugin', 'marketplace', 'remove', 'copilot-tdd-harness');
+  assert.ok(!JSON.parse(run('plugin', 'list', '--json')).some((plugin) => plugin.name === 'copilot-tdd-harness'));
+  for (const [file, content] of projectFiles) {
+    assert.equal(fs.readFileSync(path.join(project, file), 'utf8'), content);
+  }
+});
