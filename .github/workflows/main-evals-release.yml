@@ -38,8 +38,8 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install pinned Copilot CLI for lifecycle tests
-        run: npm install --prefix "$RUNNER_TEMP/plugin-cli" --no-audit --no-fund @github/copilot@1.0.103
+      - name: Install pinned plugin validation CLIs
+        run: npm install --prefix "$RUNNER_TEMP/plugin-cli" --no-audit --no-fund @github/copilot@1.0.103 @microsoft/vally-cli@0.20.0
 
       - name: Run script and plugin regression tests
         env:
@@ -47,9 +47,14 @@ jobs:
         run: node --test scripts/*.test.js
 
       - name: Validate and build isolated plugin
+        env:
+          VALLY_TELEMETRY_OPTOUT: '1'
         run: |
           node scripts/build-copilot-plugin.js --check
+          "$RUNNER_TEMP/plugin-cli/node_modules/.bin/vally" lint plugin
           node scripts/build-copilot-plugin.js "$RUNNER_TEMP/copilot-tdd-harness-plugin"
+          node scripts/build-copilot-plugin.js "--check-bundle=$RUNNER_TEMP/copilot-tdd-harness-plugin"
+          "$RUNNER_TEMP/plugin-cli/node_modules/.bin/vally" lint "$RUNNER_TEMP/copilot-tdd-harness-plugin"
 
   release:
     name: Create Versioned Zip Release
@@ -109,6 +114,7 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           node scripts/build-copilot-plugin.js "$RUNNER_TEMP/copilot-tdd-harness-plugin"
+          node scripts/build-copilot-plugin.js "--check-bundle=$RUNNER_TEMP/copilot-tdd-harness-plugin"
           cd "$RUNNER_TEMP/copilot-tdd-harness-plugin"
           zip -r "$GITHUB_WORKSPACE/dist/$PLUGIN_ZIP_NAME" .
 

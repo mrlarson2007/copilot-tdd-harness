@@ -10,8 +10,8 @@
     {
       "name": "copilot-tdd-harness",
       "description": "A complete, opt-in TDD workflow with project setup and verified single-behavior cycles.",
-      "version": "0.2.0",
-      "source": "./",
+      "version": "0.3.0",
+      "source": "./plugin",
       "license": "MIT"
     }
   ]

@@ -3,7 +3,7 @@
 This repository packages an opt-in GitHub Copilot workflow for strict
 test-driven development. Install the complete bundle through its self-hosted
 Copilot CLI plugin marketplace, or use the existing manual project installers.
-The plugin's [`tdd` agent](plugin/agents/tdd.agent.md) runs the bundled phase
+The plugin's [`tdd` agent](plugin/com.github.copilot/agents/tdd.agent.md) runs the bundled phase
 skills in one agent; no separate phase agents are required.
 
 ## What It Includes
@@ -21,6 +21,10 @@ skills in one agent; no separate phase agents are required.
   instructions. This is also the distributable package copied into target
   projects by the installer.
 - [`scripts/`](scripts/) contains install and eval helper scripts.
+- [`plugin/`](plugin/) is the complete, checked-in Agent Plugins 1.0 install root:
+  `plugin.json`, ten immediate `skills/` subdirectories, the Copilot-specific
+  `com.github.copilot/agents/tdd.agent.md`, and `LICENSE`. The marketplace points
+  here, so installation and external review never require a build.
 - [`evals/`](evals/) contains promptfoo configs, assertions, fixtures, and run
   summaries.
 - [`samples/`](samples/) contains small example projects used to shape and
@@ -177,35 +181,60 @@ To publish results on the report site, see [`site/README.md`](site/README.md).
 
 ## Plugin development and validation
 
-The root `plugin.json` deliberately uses the supported **legacy Copilot plugin
-format** so both marketplace and direct development installs load the canonical
-`.github/skills/` tree without generated duplicates. Its only component paths
-are `.github/skills/` and `plugin/agents/`; repository workflows, instructions,
-evals, and report files are not plugin components. A Git-backed installation
-may cache the source repository, but only those declared components are loaded.
+The root `plugin.json` is canonical metadata using the
+[Agent Plugins 1.0 schema](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json).
+It is **not** the installation root; install `plugin/` instead. Skills remain
+authored only under `.github/skills/`, preserving manual installers and evals.
+The agent is authored directly at `plugin/com.github.copilot/agents/tdd.agent.md`.
+The generator materializes the canonical manifest, license, and all skills into
+`plugin/`, without symlinks. Packaged frontmatter keeps standard Agent Skills
+fields; custom titles, roles, contracts, and `user-invocable` hints become string
+values under `metadata`. These hints are informational, not invocation controls;
+explicit opt-in is enforced by the agent and workflow skill instructions.
+
+After editing sources, regenerate and commit the checked-in copies:
+
+```bash
+node scripts/build-copilot-plugin.js --generate
+node scripts/build-copilot-plugin.js --check
+```
+
+The check is read-only and rejects missing, stale, or extra generated files.
+Do not edit `plugin/skills/`, `plugin/plugin.json`, or `plugin/LICENSE` directly.
+Repository instructions, workflows, evals, and manual installers are not plugin
+components.
 
 Build a minimal distributable into a **new** directory (Node.js 22+):
 
 ```bash
 node scripts/build-copilot-plugin.js --check
-node scripts/build-copilot-plugin.js /tmp/copilot-tdd-harness-plugin
-copilot plugin install /tmp/copilot-tdd-harness-plugin
+mkdir -p dist
+node scripts/build-copilot-plugin.js dist/copilot-tdd-harness-plugin
+node scripts/build-copilot-plugin.js --check-bundle=dist/copilot-tdd-harness-plugin
+copilot plugin install ./dist/copilot-tdd-harness-plugin
 ```
 
-The output contains only `plugin.json`, `.github/skills/` including bundled assets
-and templates, `plugin/agents/`, `README.md`, and `LICENSE`. It excludes project
+The output contains only `plugin.json`, `skills/` including bundled assets
+and templates, `com.github.copilot/agents/`, and `LICENSE`. It excludes project
 configuration, workflows, evals, installers, and reports. The builder refuses
 existing output directories, source-tree destinations other than `dist/`,
 symlinked package files, mismatched versions, and missing bundled references.
 Direct local installs are intended for development; use marketplace installs
-for normal use. Reinstall a local package after rebuilding it because direct
-installs are cached.
+for normal use. CLI `1.0.103` loads local paths live on the next session; keep
+that directory available and rebuild it after source changes. It also warns
+that direct installs are deprecated in favor of `plugin@marketplace` installs.
 
 Run the existing script tests:
 
 ```bash
 node --test scripts/*.test.js
 ```
+
+CI also runs the official [`@microsoft/vally-cli`](https://www.npmjs.com/package/@microsoft/vally-cli)
+`0.20.0` tool's `vally lint plugin` and lints the isolated artifact. Locally,
+install that pinned version in a tooling prefix outside package contents, then
+run `vally lint plugin`. All ten packaged skills pass its spec-compliance and
+valid-reference checks. This is static validation, not model-backed evaluation.
 
 The plugin tests run an isolated local-marketplace CLI smoke test when `copilot`
 is on PATH. Set `COPILOT_PLUGIN_TEST_CLI` to an absolute executable path if needed.
@@ -217,6 +246,8 @@ The smoke test does **not** make model calls or prove an actual TDD cycle.
 Before publishing, use a disposable project to confirm setup writes only after
 approval and run one complete RED -> GREEN -> COMMIT -> REFACTOR cycle with the
 installed `tdd` agent. Existing model-backed evals remain separate.
+The migration's normal CLI authentication probe reported no authentication
+information, so the model-backed cycle is **blocked**, not claimed as passing.
 
 ## CI Pipeline And Publishing
 
@@ -224,8 +255,8 @@ This repository includes a GitHub Actions pipeline at
 [`/.github/workflows/main-evals-release.yml`](.github/workflows/main-evals-release.yml).
 
 Pull requests and pushes to `master` or `main` validate script tests, package
-integrity, and the real CLI marketplace lifecycle. After validation, pushes or
-manual dispatches on the **default branch only**:
+integrity, Vally lint on source and artifact, and the real CLI marketplace
+lifecycle. After validation, pushes or manual dispatches on the **default branch only**:
 
 1. Read the version from `plugin.json` and require the marketplace entry to match.
 2. Build the isolated plugin zip and retain the existing manual-install zip.
@@ -239,8 +270,9 @@ gate in this workflow.
 
 The release job uses git tags in `vMAJOR.MINOR.PATCH` format.
 
-- Bump `plugin.json` and `.github/plugin/marketplace.json` together before a release.
-  The first marketplace-capable version is `0.2.0`.
+- Bump `plugin.json` and `.github/plugin/marketplace.json` together, then run
+  `--generate` to synchronize `plugin/plugin.json` before a release.
+  Version `0.3.0` migrates the legacy `0.2.0` bundle to Agent Plugins 1.0.
 - Versions are explicit, not automatically incremented: this keeps plugin,
   catalog, release tag, and zip metadata consistent.
 - Optional workflow input `release_version` must match both manifests.
@@ -271,13 +303,32 @@ in GitHub's built-in `awesome-copilot` marketplace.
 
 For curated inclusion, follow the current
 [Awesome Copilot external-plugin review process](https://github.com/github/awesome-copilot/blob/main/CONTRIBUTING.md#adding-external-plugins):
-submit its external-plugin issue form with the public repository, release tag,
-full commit SHA, version, license, author, and keywords. Do not directly edit
-their external-plugin catalog. Approval is controlled by its maintainers.
-Its current quality gates require **Agent Plugins 1.0** and skill-spec compliance;
-this legacy-format package must first be migrated/materialized into that layout
-and pass their lint and install checks before submission. No curated submission
-or approval is performed by this repository's release workflow.
+submit its external-plugin issue form; do not directly edit their external-plugin
+catalog. The submission fields for this migration are:
+
+| Field | Value |
+| --- | --- |
+| Name | `copilot-tdd-harness` |
+| Description | Opt-in strict TDD: requirements planning, project setup, and verified RED → GREEN → COMMIT → REFACTOR cycles. |
+| Repository / source | `mrlarson2007/copilot-tdd-harness` / `github` |
+| Plugin path | `plugin` (not `plugin.json` or the repository root) |
+| Version / license | `0.3.0` / `MIT` |
+| Author / URL | `mrlarson2007` / `https://github.com/mrlarson2007` |
+| Homepage | `https://github.com/mrlarson2007/copilot-tdd-harness#readme` |
+| Keywords | `tdd`, `testing`, `requirements`, `red-green-refactor` |
+| Ref / SHA | After merge and publication, use the actual `v0.3.0` release tag and its full 40-character commit SHA. Do not submit a branch or a fabricated SHA. |
+
+After publication, obtain the immutable SHA with
+`git rev-parse 'refs/tags/v0.3.0^{commit}'` in a checkout containing the published
+tag, and verify it contains the reviewed `plugin/` tree. Confirm the repository
+is public, locators are immutable, policies are followed, and no duplicate listing
+exists. Current intake requires **Agent Plugins 1.0**, `vally lint` (including
+Agent Skills compliance and references), version/ref/SHA consistency, and a
+Copilot install smoke test. This migration passes local static lint and the
+isolated CLI install/update/removal tests; remote immutable-ref intake has not
+been run. An authenticated, model-backed TDD cycle is a separate readiness check,
+not proven by installation. No external issue, release, curated submission,
+approval, or remote quality-gate run is performed by this change.
 
 Official format and command references:
 
