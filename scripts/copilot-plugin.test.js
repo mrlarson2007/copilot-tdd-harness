@@ -3,7 +3,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
 const readJson = (file) => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
@@ -64,4 +66,33 @@ test('WhenSkillsAreCachedOutsideProject_ShouldKeepBundledAssetsReadOnlyAndProjec
   const cycle = fs.readFileSync(path.join(skills, 'tdd-cycle-runner', 'SKILL.md'), 'utf8');
   assert.ok(cycle.includes('No phase agents are required.'));
   assert.ok(!cycle.includes('related_agents:'));
+});
+
+test('WhenPluginIsBuiltOutsideRepository_ShouldContainOnlyInstallableComponentsAndBundledAssets', (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'copilot-plugin-test-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const output = path.join(directory, 'package');
+  const result = spawnSync(process.execPath, [
+    path.join(root, 'scripts', 'build-copilot-plugin.js'), output,
+  ], { cwd: directory, encoding: 'utf8' });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(fs.readdirSync(output).sort(), [
+    '.github', 'LICENSE', 'README.md', 'plugin', 'plugin.json',
+  ]);
+  assert.deepEqual(fs.readdirSync(path.join(output, '.github')), ['skills']);
+  assert.deepEqual(fs.readdirSync(path.join(output, 'plugin')), ['agents']);
+  const plugin = JSON.parse(fs.readFileSync(path.join(output, 'plugin.json'), 'utf8'));
+  const skillRoot = path.join(output, plugin.skills);
+  for (const name of fs.readdirSync(skillRoot)) {
+    const skill = fs.readFileSync(path.join(skillRoot, name, 'SKILL.md'), 'utf8');
+    for (const match of skill.matchAll(/`(\.\/(?:assets|templates)\/[^`]+)`/g)) {
+      assert.ok(fs.existsSync(path.resolve(skillRoot, name, match[1])), match[1]);
+    }
+  }
+  for (const language of ['dotnet', 'java', 'node', 'python']) {
+    assert.ok(fs.existsSync(path.join(skillRoot, 'tdd-setup', 'templates', `${language}.tdd-patterns.md`)));
+  }
+  assert.equal(fs.readFileSync(path.join(output, 'plugin/agents/tdd.agent.md'), 'utf8'),
+    fs.readFileSync(path.join(root, 'plugin/agents/tdd.agent.md'), 'utf8'));
 });
