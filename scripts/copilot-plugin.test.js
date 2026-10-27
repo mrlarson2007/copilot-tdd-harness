@@ -255,3 +255,34 @@ test('WhenMarketplacePluginIsUpdatedAndRemoved_ShouldPreserveProjectConfiguratio
     assert.equal(fs.readFileSync(path.join(project, file), 'utf8'), content);
   }
 });
+
+test('WhenReleaseRuns_ShouldValidatePullRequestsAndPublishOnlyTheDeclaredVersion', (t) => {
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/main-evals-release.yml'), 'utf8');
+  assert.match(workflow, /\n  pull_request:\n/);
+  assert.match(workflow, /needs: validate/);
+  assert.match(workflow, /if: github\.event_name != 'pull_request'/);
+  assert.match(workflow, /node --test scripts\/\*\.test\.js/);
+  assert.match(workflow, /copilot-tdd-harness-plugin-/);
+  const step = workflow.match(/      - name: Resolve release version\n([\s\S]*?)(?=\n      - name:)/);
+  assert.ok(step);
+  assert.match(step[1], /INPUT_VERSION: \$\{\{ inputs\.release_version \}\}/);
+  const run = step[1].match(/        run: \|\n((?:          .*\n|\n)+)/);
+  assert.ok(run);
+  const script = run[1].replace(/^          /gm, '');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'copilot-release-test-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const version = readJson('plugin.json').version;
+  for (const [input, expected] of [['', 0], [version, 0], ['99.0.0', 1], ['$(exit 0)', 1]]) {
+    const output = path.join(directory, 'output');
+    fs.writeFileSync(output, '');
+    const result = spawnSync('bash', ['-c', script], {
+      cwd: root,
+      env: { ...process.env, INPUT_VERSION: input, GITHUB_OUTPUT: output },
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, expected, result.stderr);
+    if (expected === 0) {
+      assert.match(fs.readFileSync(output, 'utf8'), new RegExp(`^version=${version.replaceAll('.', '\\.')}$`, 'm'));
+    }
+  }
+});

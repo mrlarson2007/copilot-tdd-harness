@@ -5,60 +5,115 @@ on:
     branches:
       - master
       - main
+  pull_request:
+    branches:
+      - master
+      - main
   workflow_dispatch:
     inputs:
       release_version:
-        description: Optional explicit release version (for example 1.2.3)
+        description: Optional confirmation of the version in plugin.json
         required: false
         type: string
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: copilot-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  validate:
+    name: Validate Plugin Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Install pinned Copilot CLI for lifecycle tests
+        run: npm install --prefix "$RUNNER_TEMP/plugin-cli" --no-audit --no-fund @github/copilot@1.0.103
+
+      - name: Run script and plugin regression tests
+        env:
+          COPILOT_PLUGIN_TEST_CLI: ${{ runner.temp }}/plugin-cli/node_modules/.bin/copilot
+        run: node --test scripts/*.test.js
+
+      - name: Validate and build isolated plugin
+        run: |
+          node scripts/build-copilot-plugin.js --check
+          node scripts/build-copilot-plugin.js "$RUNNER_TEMP/copilot-tdd-harness-plugin"
+
   release:
     name: Create Versioned Zip Release
+    needs: validate
+    if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
 
       - name: Resolve release version
         id: version
         shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.release_version }}
         run: |
           set -euo pipefail
 
-          INPUT_VERSION="${{ github.event.inputs.release_version || '' }}"
-          if [[ -n "$INPUT_VERSION" ]]; then
-            if [[ ! "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "release_version must match MAJOR.MINOR.PATCH" >&2
-              exit 1
-            fi
-            VERSION="$INPUT_VERSION"
-          else
-            LAST_TAG=$(git tag --list 'v*' --sort=-version:refname | head -n1 || true)
-            if [[ -z "$LAST_TAG" ]]; then
-              VERSION="0.1.0"
-            else
-              BASE="${LAST_TAG#v}"
-              IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
-              PATCH=$((PATCH + 1))
-              VERSION="${MAJOR}.${MINOR}.${PATCH}"
-            fi
+          VERSION="$(node scripts/build-copilot-plugin.js --check)"
+          if [[ -n "${INPUT_VERSION:-}" && "$INPUT_VERSION" != "$VERSION" ]]; then
+            echo "release_version must match plugin.json and marketplace.json" >&2
+            exit 1
           fi
 
           TAG="v${VERSION}"
           ZIP_NAME="copilot-tdd-harness-${VERSION}.zip"
+          PLUGIN_ZIP_NAME="copilot-tdd-harness-plugin-${VERSION}.zip"
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+          echo "plugin_zip_name=$PLUGIN_ZIP_NAME" >> "$GITHUB_OUTPUT"
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "$TAG already exists; published versions are immutable."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build isolated plugin zip
+        if: steps.version.outputs.publish == 'true'
+        shell: bash
+        env:
+          PLUGIN_ZIP_NAME: ${{ steps.version.outputs.plugin_zip_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          node scripts/build-copilot-plugin.js "$RUNNER_TEMP/copilot-tdd-harness-plugin"
+          cd "$RUNNER_TEMP/copilot-tdd-harness-plugin"
+          zip -r "$GITHUB_WORKSPACE/dist/$PLUGIN_ZIP_NAME" .
 
       - name: Build release zip
+        if: steps.version.outputs.publish == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -73,10 +128,13 @@ jobs:
             LICENSE
 
       - name: Create release and upload zip
+        if: steps.version.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: Release ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           files: |
             dist/${{ steps.version.outputs.zip_name }}
+            dist/${{ steps.version.outputs.plugin_zip_name }}
