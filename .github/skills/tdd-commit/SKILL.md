@@ -1,4 +1,5 @@
 ---
+name: tdd-commit
 title: TDD Commit Phase Skill
 description: |
   Guides the creation of an atomic commit after the green phase. Enforces one-commit-per-green, clear messages, and no scope creep. Loads detailed rules from asset files.

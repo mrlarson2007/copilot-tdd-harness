@@ -1,4 +1,5 @@
 ---
+name: tdd-workflow
 title: TDD Workflow Skill
 description: >
   Enforces a strict Red-Green-Refactor-Commit TDD workflow. Use when making

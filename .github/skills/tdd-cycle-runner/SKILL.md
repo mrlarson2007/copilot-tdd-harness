@@ -1,4 +1,5 @@
 ---
+name: tdd-cycle-runner
 title: TDD Cycle Runner Skill
 description: |
   Guides the orchestration of a single TDD cycle (Red → Green → Commit → Refactor) for a scenario slice. Defines contract handoffs, escalation, and progressive context disclosure. Specifies how to load and reference phase skills and assets.

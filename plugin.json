@@ -1,0 +1,15 @@
+{
+  "name": "copilot-tdd-harness",
+  "description": "Opt-in strict TDD: requirements planning, project setup, and verified RED → GREEN → COMMIT → REFACTOR cycles.",
+  "version": "0.2.0",
+  "author": {
+    "name": "mrlarson2007",
+    "url": "https://github.com/mrlarson2007"
+  },
+  "homepage": "https://github.com/mrlarson2007/copilot-tdd-harness#readme",
+  "repository": "https://github.com/mrlarson2007/copilot-tdd-harness",
+  "license": "MIT",
+  "keywords": ["tdd", "testing", "requirements", "red-green-refactor"],
+  "agents": "plugin/agents/",
+  "skills": ".github/skills/"
+}

@@ -1,4 +1,5 @@
 ---
+name: tdd-refactor
 title: TDD Refactor Phase Skill
 description: |
   Guides the improvement of code and tests after green. Enforces behavior preservation, readability, and helper/builder introduction. Loads detailed rules from asset files.

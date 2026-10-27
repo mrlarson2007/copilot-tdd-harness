@@ -1,4 +1,5 @@
 ---
+name: tdd-green
 title: TDD Green Phase Skill
 description: |
   Guides the implementation of the simplest code to pass the current failing test. Enforces minimal change, no test edits, and commit discipline. Loads detailed rules from asset files.
