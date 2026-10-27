@@ -1,0 +1,18 @@
+{
+  "name": "copilot-tdd-harness",
+  "owner": {
+    "name": "mrlarson2007"
+  },
+  "metadata": {
+    "description": "The opt-in Copilot TDD harness marketplace."
+  },
+  "plugins": [
+    {
+      "name": "copilot-tdd-harness",
+      "description": "A complete, opt-in TDD workflow with project setup and verified single-behavior cycles.",
+      "version": "0.3.0",
+      "source": "./plugin",
+      "license": "MIT"
+    }
+  ]
+}

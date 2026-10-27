@@ -64,7 +64,9 @@ function Report-ObsoleteFile {
 # Install packaged .github files, excluding project-specific setup files
 Get-ChildItem -Path $packageDir -Recurse -File |
     Where-Object {
-        $_.FullName -notlike "*\instructions\tdd-patterns.instructions.md"
+        $relative = $_.FullName.Substring($packageDir.Length).TrimStart('\', '/')
+        $relative -notmatch '^instructions[\\/]tdd-patterns\.instructions\.md$' -and
+            $relative -notmatch '^plugin[\\/]'
     } |
     Sort-Object FullName |
     ForEach-Object {

@@ -62,6 +62,7 @@ while IFS= read -r -d '' src_file; do
     install_file "$src_file" "$dst_file"
 done < <(find "${PACKAGE_DIR}" -type f \
     ! -path "${PACKAGE_DIR}/instructions/tdd-patterns.instructions.md" \
+    ! -path "${PACKAGE_DIR}/plugin/*" \
     -print0)
 
 for rel in "${obsolete_files[@]}"; do

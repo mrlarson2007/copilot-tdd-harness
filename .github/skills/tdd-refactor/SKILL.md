@@ -1,4 +1,5 @@
 ---
+name: tdd-refactor
 title: TDD Refactor Phase Skill
 description: |
   Guides the improvement of code and tests after green. Enforces behavior preservation, readability, and helper/builder introduction. Loads detailed rules from asset files.
@@ -22,7 +23,13 @@ contracts:
 - Committed baseline
 - Readability goals
 - Project refactor patterns from `.github/instructions/tdd-patterns.instructions.md`
-- Canonical REFACTOR style guide placeholder at `.github/skills/tdd-refactor/assets/project-refactor-patterns.md`
+- Project REFACTOR style guide at `.github/tdd-harness/project-refactor-patterns.md`
+
+Resolve bundled paths relative to this SKILL.md, not the working directory.
+Read the project style guide first. For manual-install compatibility, fall back
+to the working project's `.github/skills/tdd-refactor/assets/project-refactor-patterns.md`
+if present, then to the bundled `./assets/project-refactor-patterns.md`.
+Never write to the bundled fallback.
 
 ## Outputs
 - Refactor diff
@@ -30,7 +37,8 @@ contracts:
 - Helper/builder notes
 
 ## Steps
-1. Load `.github/skills/tdd-refactor/assets/project-refactor-patterns.md` first, then load core asset files for refactor patterns, anti-patterns, and test readability
+1. Load the style guide using the precedence above, then load the bundled
+   `./assets/surrounding-code-review.md` for surrounding-code review
 2. Inspect surrounding code around each in-scope change before refactoring
 3. Refactor code and tests as needed
 4. Use `tdd-test-run` with a `test_run_request` contract whose expected result is

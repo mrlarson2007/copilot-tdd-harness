@@ -1,4 +1,5 @@
 ---
+name: tdd-red
 title: TDD Red Phase Skill
 description: |
   Guides the creation of a single failing behavior test for a scenario slice. Enforces one-behavior-per-test, readable assertions, and correct failure detection. Loads detailed rules from asset files.
@@ -22,14 +23,21 @@ contracts:
 - Scenario slice
 - Skill and asset references
 - Project testing patterns from `.github/instructions/tdd-patterns.instructions.md`
-- Canonical RED style guide placeholder at `.github/skills/tdd-red/assets/project-testing-patterns.md`
+- Project RED style guide at `.github/tdd-harness/project-testing-patterns.md`
+
+Resolve bundled paths relative to this SKILL.md, not the working directory.
+Read the project style guide first. For manual-install compatibility, fall back
+to the working project's `.github/skills/tdd-red/assets/project-testing-patterns.md`
+if present, then to the bundled `./assets/project-testing-patterns.md`.
+Never write to the bundled fallback.
 
 ## Outputs
 - Failing test artifact
 - Failure output and rationale
 
 ## Steps
-1. Load `.github/skills/tdd-red/assets/project-testing-patterns.md` first, then load core asset files for assertion quality, failure verification, and anti-patterns
+1. Load the style guide using the precedence above, then apply this skill's
+   assertion and failure-verification guidance
 2. Write a single failing test for the scenario
 3. Use `tdd-test-run` with a `test_run_request` contract whose expected result is
   the specific failing test and failure signal for this RED step

@@ -1,0 +1,392 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
+const root = path.resolve(__dirname, '..');
+const readJson = (file) => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+const scratch = path.join(root, 'dist');
+fs.mkdirSync(scratch, { recursive: true });
+
+function sourceFixture(t) {
+  const directory = fs.mkdtempSync(path.join(scratch, 'copilot-plugin-source-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const source = path.join(directory, 'source');
+  for (const entry of [
+    'plugin.json', '.github/plugin/marketplace.json', '.github/skills',
+    'plugin', 'README.md', 'LICENSE',
+  ]) {
+    const destination = path.join(source, entry);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.cpSync(path.join(root, entry), destination, { recursive: true });
+  }
+  return { source, output: path.join(directory, 'package') };
+}
+
+test('WhenMarketplaceIsRegistered_ShouldDiscoverOneCompleteVersionedTddPlugin', () => {
+  const marketplace = readJson('.github/plugin/marketplace.json');
+  const plugin = readJson('plugin.json');
+
+  assert.equal(marketplace.name, 'copilot-tdd-harness');
+  assert.equal(marketplace.plugins.length, 1);
+  const entry = marketplace.plugins[0];
+  assert.equal(entry.source, './plugin');
+  assert.equal(entry.name, plugin.name);
+  assert.equal(entry.version, plugin.version);
+  assert.match(plugin.version, /^\d+\.\d+\.\d+$/);
+  assert.equal(plugin.license, 'MIT');
+  assert.equal(plugin.$schema, 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json');
+  assert.deepEqual(plugin, readJson('plugin/plugin.json'));
+  assert.equal(plugin.skills, undefined);
+  assert.equal(plugin.agents, undefined);
+  assert.equal(plugin.hooks, undefined);
+  assert.equal(plugin.mcpServers, undefined);
+  assert.ok(fs.existsSync(path.join(root, 'plugin/com.github.copilot/agents/tdd.agent.md')));
+
+  const skills = fs.readdirSync(path.join(root, 'plugin/skills'));
+  assert.deepEqual(skills.sort(), [
+    'requirements-planning', 'tdd-commit', 'tdd-cycle-runner', 'tdd-green',
+    'tdd-planning', 'tdd-red', 'tdd-refactor', 'tdd-setup', 'tdd-test-run', 'tdd-workflow',
+  ]);
+  for (const name of skills) {
+    const skill = fs.readFileSync(path.join(root, 'plugin/skills', name, 'SKILL.md'), 'utf8');
+    assert.match(skill, new RegExp(`^---\\r?\\nname: ${name}\\r?\\n`), name);
+    assert.match(skill, /\ndescription: [>|]?\n? +\S/, name);
+    const header = skill.split('---')[1];
+    assert.doesNotMatch(header, /^(?:title|role|contracts|related_agents|user-invocable):/m);
+    assert.match(header, /^metadata:\n/m);
+    const authored = fs.readFileSync(path.join(root, '.github/skills', name, 'SKILL.md'), 'utf8');
+    const body = (text) => text.replace(/^---\r?\n[\s\S]*?\r?\n---/, '');
+    assert.equal(body(skill), body(authored), 'packaging must preserve all behavioral instructions');
+  }
+});
+
+test('WhenSkillsAreCachedOutsideProject_ShouldKeepBundledAssetsReadOnlyAndProjectPatternsLocal', () => {
+  const skills = path.join(root, '.github', 'skills');
+  const setup = fs.readFileSync(path.join(skills, 'tdd-setup', 'SKILL.md'), 'utf8');
+  assert.ok(setup.includes('`./templates/`'), 'templates must be skill-relative');
+  assert.ok(setup.includes('Treat the installed skill directory as read-only.'));
+  assert.ok(setup.includes('Never overwrite an existing project file without explicit confirmation.'));
+  for (const [phase, asset] of [
+    ['red', 'project-testing-patterns.md'],
+    ['green', 'project-code-style-patterns.md'],
+    ['refactor', 'project-refactor-patterns.md'],
+    ['test-run', 'project-test-run-patterns.md'],
+  ]) {
+    const skill = fs.readFileSync(path.join(skills, `tdd-${phase}`, 'SKILL.md'), 'utf8');
+    const projectPath = `.github/tdd-harness/${asset}`;
+    assert.ok(setup.includes(projectPath), `setup must generate ${projectPath}`);
+    assert.ok(skill.includes(projectPath), `phase must read ${projectPath}`);
+    assert.ok(skill.includes(`\`./assets/${asset}\``), `missing relative fallback for ${phase}`);
+    assert.ok(fs.existsSync(path.join(skills, `tdd-${phase}`, 'assets', asset)));
+    assert.ok(skill.includes('relative to this SKILL.md'));
+    assert.ok(skill.includes('Never write to the bundled fallback.'));
+  }
+  const workflow = fs.readFileSync(path.join(skills, 'tdd-workflow', 'SKILL.md'), 'utf8');
+  assert.ok(workflow.includes('Only activate when the user explicitly requests TDD'));
+  const cycle = fs.readFileSync(path.join(skills, 'tdd-cycle-runner', 'SKILL.md'), 'utf8');
+  assert.ok(cycle.includes('No phase agents are required.'));
+  assert.ok(!cycle.includes('related_agents:'));
+});
+
+test('WhenPluginIsBuiltOutsideRepository_ShouldContainOnlyInstallableComponentsAndBundledAssets', (t) => {
+  const directory = fs.mkdtempSync(path.join(scratch, 'copilot-plugin-test-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const output = path.join(directory, 'package');
+  const result = spawnSync(process.execPath, [
+    path.join(root, 'scripts', 'build-copilot-plugin.js'), output,
+  ], { cwd: directory, encoding: 'utf8' });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(fs.readdirSync(output).sort(), [
+    'LICENSE', 'com.github.copilot', 'plugin.json', 'skills',
+  ]);
+  assert.deepEqual(fs.readdirSync(path.join(output, 'com.github.copilot')), ['agents']);
+  const plugin = JSON.parse(fs.readFileSync(path.join(output, 'plugin.json'), 'utf8'));
+  assert.deepEqual(plugin, readJson('plugin.json'));
+  const skillRoot = path.join(output, 'skills');
+  for (const name of fs.readdirSync(skillRoot)) {
+    const skill = fs.readFileSync(path.join(skillRoot, name, 'SKILL.md'), 'utf8');
+    for (const match of skill.matchAll(/`(\.\/(?:assets|templates)\/[^`]+)`/g)) {
+      assert.ok(fs.existsSync(path.resolve(skillRoot, name, match[1])), match[1]);
+    }
+  }
+  for (const language of ['dotnet', 'java', 'node', 'python']) {
+    assert.ok(fs.existsSync(path.join(skillRoot, 'tdd-setup', 'templates', `${language}.tdd-patterns.md`)));
+  }
+  assert.equal(fs.readFileSync(path.join(output, 'com.github.copilot/agents/tdd.agent.md'), 'utf8'),
+    fs.readFileSync(path.join(root, 'plugin/com.github.copilot/agents/tdd.agent.md'), 'utf8'));
+  const isolated = spawnSync(process.execPath, [
+    path.join(root, 'scripts/build-copilot-plugin.js'), `--check-bundle=${output}`,
+  ], { cwd: directory, encoding: 'utf8' });
+  assert.equal(isolated.status, 0, isolated.stderr);
+});
+
+test('WhenMarketplaceVersionDiffers_ShouldRejectBuildBeforeCreatingOutput', (t) => {
+  const { buildPlugin } = require('./build-copilot-plugin');
+  const { source, output } = sourceFixture(t);
+  const manifestPath = path.join(source, '.github/plugin/marketplace.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  manifest.plugins[0].version = '99.0.0';
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+
+  assert.throws(() => buildPlugin(output, source), /Marketplace and plugin versions must match/);
+  assert.equal(fs.existsSync(output), false);
+});
+
+test('WhenCanonicalSkillsChange_ShouldRegenerateDeterministicallyWithoutChangingAuthoredFiles', (t) => {
+  const { generatePlugin, validatePlugin } = require('./build-copilot-plugin');
+  const { source } = sourceFixture(t);
+  const skill = path.join(source, '.github/skills/tdd-red/SKILL.md');
+  const agent = path.join(source, 'plugin/com.github.copilot/agents/tdd.agent.md');
+  const originalAgent = fs.readFileSync(agent);
+  const updated = `${fs.readFileSync(skill, 'utf8')}\nUpdated canonical guidance.\n`;
+  fs.writeFileSync(skill, updated);
+  assert.throws(() => validatePlugin(source), /Generated plugin drift/);
+  generatePlugin(source);
+  const generated = fs.readFileSync(path.join(source, 'plugin/skills/tdd-red/SKILL.md'));
+  generatePlugin(source);
+  assert.deepEqual(fs.readFileSync(path.join(source, 'plugin/skills/tdd-red/SKILL.md')), generated);
+  assert.deepEqual(fs.readFileSync(agent), originalAgent);
+  assert.equal(fs.readFileSync(skill, 'utf8'), updated);
+  assert.equal(validatePlugin(source).version, '0.3.0');
+});
+
+test('WhenPluginSourcesAreInvalid_ShouldRejectIncompleteOrEscapingBundles', (t) => {
+  const { buildPlugin } = require('./build-copilot-plugin');
+  const cases = [
+    ['missing skill name', (source) => {
+      const file = path.join(source, '.github/skills/tdd-red/SKILL.md');
+      fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('name: tdd-red\n', ''));
+    }, /Skill name must match/],
+    ['missing asset', (source) => {
+      fs.unlinkSync(path.join(source, '.github/skills/tdd-red/assets/project-testing-patterns.md'));
+    }, /Missing bundled reference/],
+    ['linked asset', (source) => {
+      const file = path.join(source, '.github/skills/tdd-red/assets/project-testing-patterns.md');
+      fs.unlinkSync(file);
+      fs.symlinkSync(path.join(root, 'LICENSE'), file);
+    }, /Symbolic links are not allowed/],
+    ['escaped skill directory', (source) => {
+      const file = path.join(source, 'plugin.json');
+      const plugin = JSON.parse(fs.readFileSync(file, 'utf8'));
+      plugin.skills = '../elsewhere';
+      fs.writeFileSync(file, JSON.stringify(plugin));
+    }, /Agent Plugins 1.0 manifest fields/],
+    ['escaping packaged reference', (source) => {
+      const file = path.join(source, '.github/skills/tdd-red/SKILL.md');
+      fs.appendFileSync(file, '\n[external](../../../README.md)\n');
+    }, /external relative reference/],
+    ['broken sibling reference', (source) => {
+      const file = path.join(source, '.github/skills/tdd-red/SKILL.md');
+      fs.appendFileSync(file, '\n[sibling](../absent/SKILL.md)\n');
+    }, /Missing bundled reference/],
+    ['generated manifest drift', (source) => {
+      const file = path.join(source, 'plugin/plugin.json');
+      const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+      manifest.version = '99.0.0';
+      fs.writeFileSync(file, JSON.stringify(manifest));
+    }, /Generated plugin drift/],
+    ['generated skill drift', (source) => {
+      fs.appendFileSync(path.join(source, 'plugin/skills/tdd-red/SKILL.md'), '\nDrift\n');
+    }, /Generated plugin drift/],
+    ['linked packaged asset', (source) => {
+      const file = path.join(source, 'plugin/skills/tdd-red/assets/project-testing-patterns.md');
+      fs.unlinkSync(file);
+      fs.symlinkSync(path.join(root, 'LICENSE'), file);
+    }, /Symbolic links are not allowed/],
+    ['unexpected generated file', (source) => {
+      fs.writeFileSync(path.join(source, 'plugin/skills/tdd-red/unexpected.txt'), 'drift');
+    }, /Generated plugin file list drift/],
+    ['inconsistent identity', (source) => {
+      const file = path.join(source, 'plugin.json');
+      const plugin = JSON.parse(fs.readFileSync(file, 'utf8'));
+      plugin.name = 'another-plugin';
+      fs.writeFileSync(file, JSON.stringify(plugin));
+    }, /Marketplace identity and source must match/],
+  ];
+  for (const [label, mutate, expected] of cases) {
+    const { source, output } = sourceFixture(t);
+    mutate(source);
+    assert.throws(() => buildPlugin(output, source), expected, label);
+    assert.equal(fs.existsSync(output), false, label);
+  }
+});
+
+test('WhenBuildTargetsExistingOrSourceDirectories_ShouldPreserveFilesEvenThroughSymlinkedParents', (t) => {
+  const { buildPlugin } = require('./build-copilot-plugin');
+  const { source, output } = sourceFixture(t);
+  fs.mkdirSync(output);
+  const sentinel = path.join(output, 'keep.txt');
+  fs.writeFileSync(sentinel, 'user content');
+  assert.throws(() => buildPlugin(output, source), /EEXIST/);
+  assert.equal(fs.readFileSync(sentinel, 'utf8'), 'user content');
+
+  const alias = path.join(path.dirname(source), 'alias');
+  fs.symlinkSync(source, alias, 'dir');
+  for (const destination of [
+    path.join(source, '.github', 'unexpected'),
+    path.join(alias, 'unexpected'),
+  ]) {
+    assert.throws(() => buildPlugin(destination, source), /Build outside the source repository/);
+    assert.equal(fs.existsSync(destination), false);
+  }
+});
+
+test('WhenReleaseChecksPlugin_ShouldPrintValidatedManifestVersionWithoutBuilding', () => {
+  const result = spawnSync(process.execPath, [
+    path.join(root, 'scripts', 'build-copilot-plugin.js'), '--check',
+  ], { cwd: scratch, encoding: 'utf8' });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), readJson('plugin.json').version);
+});
+
+test('WhenMarketplacePluginIsUpdatedAndRemoved_ShouldPreserveProjectConfigurationAndManualSkills', (t) => {
+  const cli = process.env.COPILOT_PLUGIN_TEST_CLI || 'copilot';
+  const probe = spawnSync(cli, ['--version'], { encoding: 'utf8' });
+  if (probe.error?.code === 'ENOENT') return t.skip('Copilot CLI is not installed');
+  assert.equal(probe.status, 0, probe.stderr);
+
+  const { source } = sourceFixture(t);
+  const directory = path.dirname(source);
+  const project = path.join(directory, 'project');
+  const home = path.join(directory, 'home');
+  fs.mkdirSync(project);
+  fs.mkdirSync(home);
+  const init = spawnSync('git', ['init', '-q', project], { encoding: 'utf8' });
+  assert.equal(init.status, 0, init.stderr);
+  const env = {
+    ...process.env,
+    HOME: home,
+    COPILOT_HOME: home,
+    COPILOT_CACHE_HOME: path.join(directory, 'cache'),
+    COPILOT_AUTO_UPDATE: 'false',
+  };
+  const run = (...args) => {
+    const result = spawnSync(cli, args, { cwd: project, env, encoding: 'utf8', timeout: 60000 });
+    assert.equal(result.status, 0, `${args.join(' ')}\n${result.stderr}\n${result.stdout}`);
+    return result.stdout;
+  };
+
+  run('plugin', 'marketplace', 'add', source);
+  const catalog = JSON.parse(run('plugin', 'marketplace', 'browse', 'copilot-tdd-harness', '--json'));
+  assert.ok(JSON.stringify(catalog).includes('copilot-tdd-harness'));
+  run('plugin', 'install', 'copilot-tdd-harness@copilot-tdd-harness');
+  const skills = JSON.parse(run('skill', 'list', '--json')).filter((skill) => skill.source === 'plugin');
+  assert.equal(skills.length, 10);
+  for (const skill of skills) assert.ok(fs.existsSync(path.join(skill.path, 'SKILL.md')));
+  const installedBefore = JSON.parse(run('plugin', 'list', '--json'));
+  assert.equal(installedBefore.find((plugin) => plugin.name === 'copilot-tdd-harness').version, '0.3.0');
+  const installedAgent = path.resolve(skills[0].path, '../../com.github.copilot/agents/tdd.agent.md');
+  assert.ok(fs.existsSync(installedAgent), 'Copilot-specific agent must be installed with skills');
+  assert.equal(fs.existsSync(path.join(project, '.github')), false, 'install must not modify the project');
+
+  const projectFiles = new Map([
+    ['.github/instructions/tdd-patterns.instructions.md', 'user instructions\n'],
+    ['.github/tdd-harness/project-testing-patterns.md', 'user test patterns\n'],
+    ['.github/skills/tdd-red/SKILL.md', '---\nname: tdd-red\ndescription: User-owned RED skill\n---\n\nManual RED instructions.\n'],
+    ['source.txt', 'user source\n'],
+  ]);
+  for (const [file, content] of projectFiles) {
+    const target = path.join(project, file);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content);
+  }
+  for (const file of ['plugin.json', 'plugin/plugin.json', '.github/plugin/marketplace.json']) {
+    const target = path.join(source, file);
+    const manifest = JSON.parse(fs.readFileSync(target, 'utf8'));
+    if (manifest.plugins) manifest.plugins[0].version = '0.3.1';
+    else manifest.version = '0.3.1';
+    fs.writeFileSync(target, JSON.stringify(manifest));
+  }
+  run('plugin', 'marketplace', 'update', 'copilot-tdd-harness');
+  run('plugin', 'update', 'copilot-tdd-harness');
+  const installed = JSON.parse(run('plugin', 'list', '--json'));
+  assert.equal(installed.find((plugin) => plugin.name === 'copilot-tdd-harness').version, '0.3.1');
+  run('plugin', 'uninstall', 'copilot-tdd-harness');
+  const remaining = JSON.parse(run('plugin', 'list', '--json'));
+  assert.ok(!remaining.some((plugin) => plugin.name === 'copilot-tdd-harness' && plugin.enabled));
+  assert.equal(JSON.parse(run('skill', 'list', '--json')).filter((skill) => skill.source === 'plugin').length, 0);
+  run('plugin', 'marketplace', 'remove', 'copilot-tdd-harness');
+  assert.ok(!JSON.parse(run('plugin', 'list', '--json')).some((plugin) => plugin.name === 'copilot-tdd-harness'));
+  for (const [file, content] of projectFiles) {
+    assert.equal(fs.readFileSync(path.join(project, file), 'utf8'), content);
+  }
+});
+
+test('WhenReleaseRuns_ShouldValidatePullRequestsAndPublishOnlyTheDeclaredVersion', (t) => {
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/main-evals-release.yml'), 'utf8');
+  assert.match(workflow, /\n  pull_request:\n/);
+  assert.match(workflow, /needs: validate/);
+  assert.match(workflow, /if: github\.event_name != 'pull_request'/);
+  assert.match(workflow, /node --test scripts\/\*\.test\.js/);
+  assert.match(workflow, /copilot-tdd-harness-plugin-/);
+  assert.match(workflow, /@microsoft\/vally-cli@0\.20\.0/);
+  assert.match(workflow, /vally" lint plugin/);
+  assert.match(workflow, /vally" lint "\$RUNNER_TEMP\/copilot-tdd-harness-plugin"/);
+  assert.match(workflow, /--check-bundle=\$RUNNER_TEMP\/copilot-tdd-harness-plugin/);
+  const step = workflow.match(/      - name: Resolve release version\n([\s\S]*?)(?=\n      - name:)/);
+  assert.ok(step);
+  assert.match(step[1], /INPUT_VERSION: \$\{\{ inputs\.release_version \}\}/);
+  const run = step[1].match(/        run: \|\n((?:          .*\n|\n)+)/);
+  assert.ok(run);
+  const script = run[1].replace(/^          /gm, '');
+  const directory = fs.mkdtempSync(path.join(scratch, 'copilot-release-test-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const version = readJson('plugin.json').version;
+  for (const [input, expected] of [['', 0], [version, 0], ['99.0.0', 1], ['$(exit 0)', 1]]) {
+    const output = path.join(directory, 'output');
+    fs.writeFileSync(output, '');
+    const result = spawnSync('bash', ['-c', script], {
+      cwd: root,
+      env: { ...process.env, INPUT_VERSION: input, GITHUB_OUTPUT: output },
+      encoding: 'utf8',
+    });
+
+    assert.equal(result.status, expected, result.stderr);
+    if (expected === 0) {
+      assert.match(fs.readFileSync(output, 'utf8'), new RegExp(`^version=${version.replaceAll('.', '\\.')}$`, 'm'));
+    }
+  }
+});
+
+test('WhenManualInstallersRun_ShouldSkipMarketplaceMetadataAndPreserveExistingProjectFiles', (t) => {
+  for (const [command, script, args] of [
+    ['bash', 'install-tdd-harness.sh', []],
+    ['pwsh', 'install-tdd-harness.ps1', ['-NoLogo', '-NoProfile', '-File']],
+  ]) {
+    const probe = spawnSync(command, [command === 'bash' ? '--version' : '-Version']);
+    if (probe.error?.code === 'ENOENT') continue;
+    const directory = fs.mkdtempSync(path.join(scratch, 'copilot-manual-install-test-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const source = path.join(directory, 'source');
+    const target = path.join(directory, 'target');
+    const scriptPath = path.join(source, 'scripts', script);
+    fs.mkdirSync(path.dirname(scriptPath), { recursive: true });
+    fs.copyFileSync(path.join(root, 'scripts', script), scriptPath);
+    for (const [file, content] of [
+      ['.github/plugin/marketplace.json', '{}'],
+      ['.github/instructions/tdd-patterns.instructions.md', 'source-specific patterns'],
+      ['.github/skills/tdd-red/SKILL.md', 'bundled RED'],
+      ['.github/skills/tdd-green/SKILL.md', 'bundled GREEN'],
+    ]) {
+      const filePath = path.join(source, file);
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, content);
+    }
+    const existing = path.join(target, '.github/skills/tdd-red/SKILL.md');
+    fs.mkdirSync(path.dirname(existing), { recursive: true });
+    fs.writeFileSync(existing, 'user RED');
+    const result = spawnSync(command, [...args, scriptPath, target], { encoding: 'utf8' });
+
+    assert.equal(result.status, 0, `${command}: ${result.stderr}`);
+    assert.equal(fs.existsSync(path.join(target, '.github/plugin')), false, command);
+    assert.equal(fs.existsSync(path.join(target, '.github/instructions/tdd-patterns.instructions.md')), false, command);
+    assert.equal(fs.readFileSync(existing, 'utf8'), 'user RED', command);
+    assert.equal(fs.readFileSync(path.join(target, '.github/skills/tdd-green/SKILL.md'), 'utf8'), 'bundled GREEN', command);
+  }
+});

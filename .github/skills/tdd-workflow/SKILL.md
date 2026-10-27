@@ -1,14 +1,20 @@
 ---
+name: tdd-workflow
 title: TDD Workflow Skill
 description: >
-  Enforces a strict Red-Green-Refactor-Commit TDD workflow. Use when making
-  any code changes or adding behavior. Guides the RED→GREEN→COMMIT→REFACTOR
+  Opt-in strict TDD workflow. Use when the user explicitly requests TDD
+  or selects the tdd agent. Guides the RED→GREEN→COMMIT→REFACTOR
   cycle with one-test-per-cycle discipline, edge-case-first ordering, minimal
   green implementations, and explicit verification checkpoints.
 user-invocable: true
 ---
 
-Use this skill when implementing or changing behavior via strict TDD.
+Only activate when the user explicitly requests TDD or selects the `tdd` agent.
+Installing this skill alone must not change the default coding workflow.
+
+Load installed skills by name or resolve sibling `../<skill-name>/SKILL.md`
+paths relative to this SKILL.md, not the working repository. Treat bundled
+assets as read-only. Keep project-specific configuration in the working project.
 
 This skill assumes a concrete target behavior has already been chosen by the
 user or by `tdd-planning`. It governs execution discipline; it does not decide

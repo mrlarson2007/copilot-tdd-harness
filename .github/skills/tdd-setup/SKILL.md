@@ -4,8 +4,8 @@ description: >
   Configure TDD harness for this project. Uses exemplar test and production
   code plus LLM analysis to extract project patterns, then interviews you to
   fill any gaps. Generates
-  .github/instructions/tdd-patterns.instructions.md and stage-specific
-  pattern assets.
+  .github/instructions/tdd-patterns.instructions.md and project-local phase
+  pattern files without changing installed skills.
 user-invocable: true
 ---
 
@@ -18,15 +18,22 @@ Use this skill when the repository needs project-specific TDD configuration.
 Generate:
 
 - `.github/instructions/tdd-patterns.instructions.md`
-- `.github/skills/tdd-red/assets/project-testing-patterns.md`
-- `.github/skills/tdd-green/assets/project-code-style-patterns.md`
-- `.github/skills/tdd-refactor/assets/project-refactor-patterns.md`
+- `.github/tdd-harness/project-testing-patterns.md`
+- `.github/tdd-harness/project-code-style-patterns.md`
+- `.github/tdd-harness/project-refactor-patterns.md`
+- `.github/tdd-harness/project-test-run-patterns.md`
 
-These three phase asset files are canonical placeholders and must always exist, even before final pattern extraction.
+All output paths are relative to the working project's root, not the plugin.
+Treat the installed skill directory as read-only.
+Resolve bundled `./templates/` paths relative to this SKILL.md.
+Never overwrite an existing project file without explicit confirmation.
+Read existing project instructions and phase patterns before proposing changes;
+preserve user edits and only create missing files unless replacement is confirmed.
+Do not create placeholders or any other files before the user confirms setup.
 
 ## Pattern Extraction Step
 
-1. Ensure canonical placeholder files exist for RED, GREEN, and REFACTOR style guides.
+1. Read existing project configuration and identify missing phase guides.
 2. Prompt the user to select or specify exemplar test files and production code files that best represent the project's preferred style and conventions.
 3. Use LLM-powered analysis to extract:
   - Test structure, naming, and assertion patterns from the exemplar test files (for RED)
@@ -34,9 +41,10 @@ These three phase asset files are canonical placeholders and must always exist, 
   - Refactoring and surrounding-code consistency patterns from both (for REFACTOR)
 4. Summarize the extracted patterns and present them to the user for confirmation or editing.
 5. After confirmation, update:
-  - `.github/skills/tdd-red/assets/project-testing-patterns.md`
-  - `.github/skills/tdd-green/assets/project-code-style-patterns.md`
-  - `.github/skills/tdd-refactor/assets/project-refactor-patterns.md`
+  - `.github/tdd-harness/project-testing-patterns.md`
+  - `.github/tdd-harness/project-code-style-patterns.md`
+  - `.github/tdd-harness/project-refactor-patterns.md`
+  - `.github/tdd-harness/project-test-run-patterns.md`
 
 If the user does not provide example files, run interview-only mode.
 
@@ -61,17 +69,18 @@ Do not write files until the user has confirmed the final values.
 
 After confirmation:
 
-1. Choose the closest template from `.github/skills/tdd-setup/templates/`:
+1. Choose the closest bundled template from `./templates/`:
    - `dotnet.tdd-patterns.md`
    - `node.tdd-patterns.md`
    - `python.tdd-patterns.md`
    - `java.tdd-patterns.md`
 2. Expand the template with project-specific values, including any confirmed test or build commands in the instructions content.
 3. Write the result to `.github/instructions/tdd-patterns.instructions.md`.
-4. Write stage-specific pattern assets:
-  - `.github/skills/tdd-red/assets/project-testing-patterns.md`
-  - `.github/skills/tdd-green/assets/project-code-style-patterns.md`
-  - `.github/skills/tdd-refactor/assets/project-refactor-patterns.md`
+4. Write project-local phase guides:
+  - `.github/tdd-harness/project-testing-patterns.md`
+  - `.github/tdd-harness/project-code-style-patterns.md`
+  - `.github/tdd-harness/project-refactor-patterns.md`
+  - `.github/tdd-harness/project-test-run-patterns.md`
 5. Do not generate `.github/tdd-config.json`.
 
 Asset content requirements:
@@ -79,6 +88,8 @@ Asset content requirements:
 - RED asset focuses on test naming, test structure, assertion style, and allowed test doubles.
 - GREEN asset focuses on production code style and minimal implementation conventions.
 - REFACTOR asset focuses on surrounding-code review, readability heuristics, and safe extraction rules.
+- TEST-RUN guide records confirmed test/build commands, expected-result checks,
+  verification scope, and safe scoped rollback.
 
 ## Template Selection Guide
 
