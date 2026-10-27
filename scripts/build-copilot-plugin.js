@@ -28,6 +28,9 @@ function validatePlugin(root = REPO_ROOT) {
   }
   const plugin = JSON.parse(fs.readFileSync(path.join(root, 'plugin.json'), 'utf8'));
   const marketplace = JSON.parse(fs.readFileSync(path.join(root, '.github/plugin/marketplace.json'), 'utf8'));
+  if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(plugin.version)) {
+    throw new Error('Plugin version must be MAJOR.MINOR.PATCH without leading zeroes');
+  }
   if (marketplace.plugins?.length !== 1 || marketplace.plugins[0].version !== plugin.version) {
     throw new Error('Marketplace and plugin versions must match');
   }
@@ -72,9 +75,11 @@ function buildPlugin(output, root = REPO_ROOT) {
 if (require.main === module) {
   try {
     if (process.argv.length !== 3) {
-      throw new Error('Usage: node scripts/build-copilot-plugin.js OUTPUT_DIRECTORY');
+      throw new Error('Usage: node scripts/build-copilot-plugin.js OUTPUT_DIRECTORY|--check');
     }
-    console.log(buildPlugin(process.argv[2]));
+    console.log(process.argv[2] === '--check'
+      ? validatePlugin().version
+      : buildPlugin(process.argv[2]));
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;

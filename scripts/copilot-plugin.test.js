@@ -179,3 +179,12 @@ test('WhenBuildTargetsExistingOrSourceDirectories_ShouldPreserveFilesEvenThrough
     assert.equal(fs.existsSync(destination), false);
   }
 });
+
+test('WhenReleaseChecksPlugin_ShouldPrintValidatedManifestVersionWithoutBuilding', () => {
+  const result = spawnSync(process.execPath, [
+    path.join(root, 'scripts', 'build-copilot-plugin.js'), '--check',
+  ], { cwd: os.tmpdir(), encoding: 'utf8' });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), readJson('plugin.json').version);
+});
