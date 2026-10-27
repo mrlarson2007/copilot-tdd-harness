@@ -123,3 +123,39 @@ test('WhenMarketplaceVersionDiffers_ShouldRejectBuildBeforeCreatingOutput', (t) 
   assert.throws(() => buildPlugin(output, source), /Marketplace and plugin versions must match/);
   assert.equal(fs.existsSync(output), false);
 });
+
+test('WhenPluginSourcesAreInvalid_ShouldRejectIncompleteOrEscapingBundles', (t) => {
+  const { buildPlugin } = require('./build-copilot-plugin');
+  const cases = [
+    ['missing skill name', (source) => {
+      const file = path.join(source, '.github/skills/tdd-red/SKILL.md');
+      fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('name: tdd-red\n', ''));
+    }, /Skill name must match/],
+    ['missing asset', (source) => {
+      fs.unlinkSync(path.join(source, '.github/skills/tdd-red/assets/project-testing-patterns.md'));
+    }, /Missing bundled reference/],
+    ['linked asset', (source) => {
+      const file = path.join(source, '.github/skills/tdd-red/assets/project-testing-patterns.md');
+      fs.unlinkSync(file);
+      fs.symlinkSync(path.join(root, 'LICENSE'), file);
+    }, /Symbolic links are not allowed/],
+    ['escaped skill directory', (source) => {
+      const file = path.join(source, 'plugin.json');
+      const plugin = JSON.parse(fs.readFileSync(file, 'utf8'));
+      plugin.skills = '../elsewhere';
+      fs.writeFileSync(file, JSON.stringify(plugin));
+    }, /Unexpected plugin component paths/],
+    ['inconsistent identity', (source) => {
+      const file = path.join(source, 'plugin.json');
+      const plugin = JSON.parse(fs.readFileSync(file, 'utf8'));
+      plugin.name = 'another-plugin';
+      fs.writeFileSync(file, JSON.stringify(plugin));
+    }, /Marketplace identity and source must match/],
+  ];
+  for (const [label, mutate, expected] of cases) {
+    const { source, output } = sourceFixture(t);
+    mutate(source);
+    assert.throws(() => buildPlugin(output, source), expected, label);
+    assert.equal(fs.existsSync(output), false, label);
+  }
+});
