@@ -10,6 +10,21 @@ const { spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const readJson = (file) => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
 
+function sourceFixture(t) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'copilot-plugin-source-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const source = path.join(directory, 'source');
+  for (const entry of [
+    'plugin.json', '.github/plugin/marketplace.json', '.github/skills',
+    'plugin/agents', 'README.md', 'LICENSE',
+  ]) {
+    const destination = path.join(source, entry);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.cpSync(path.join(root, entry), destination, { recursive: true });
+  }
+  return { source, output: path.join(directory, 'package') };
+}
+
 test('WhenMarketplaceIsRegistered_ShouldDiscoverOneCompleteVersionedTddPlugin', () => {
   const marketplace = readJson('.github/plugin/marketplace.json');
   const plugin = readJson('plugin.json');
@@ -95,4 +110,16 @@ test('WhenPluginIsBuiltOutsideRepository_ShouldContainOnlyInstallableComponentsA
   }
   assert.equal(fs.readFileSync(path.join(output, 'plugin/agents/tdd.agent.md'), 'utf8'),
     fs.readFileSync(path.join(root, 'plugin/agents/tdd.agent.md'), 'utf8'));
+});
+
+test('WhenMarketplaceVersionDiffers_ShouldRejectBuildBeforeCreatingOutput', (t) => {
+  const { buildPlugin } = require('./build-copilot-plugin');
+  const { source, output } = sourceFixture(t);
+  const manifestPath = path.join(source, '.github/plugin/marketplace.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  manifest.plugins[0].version = '99.0.0';
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+
+  assert.throws(() => buildPlugin(output, source), /Marketplace and plugin versions must match/);
+  assert.equal(fs.existsSync(output), false);
 });

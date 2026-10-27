@@ -7,7 +7,17 @@ const path = require('node:path');
 const REPO_ROOT = path.resolve(__dirname, '..');
 const PACKAGE_PATHS = ['plugin.json', '.github/skills', 'plugin/agents', 'README.md', 'LICENSE'];
 
+function validatePlugin(root = REPO_ROOT) {
+  const plugin = JSON.parse(fs.readFileSync(path.join(root, 'plugin.json'), 'utf8'));
+  const marketplace = JSON.parse(fs.readFileSync(path.join(root, '.github/plugin/marketplace.json'), 'utf8'));
+  if (marketplace.plugins?.length !== 1 || marketplace.plugins[0].version !== plugin.version) {
+    throw new Error('Marketplace and plugin versions must match');
+  }
+  return plugin;
+}
+
 function buildPlugin(output, root = REPO_ROOT) {
+  validatePlugin(root);
   const destination = path.resolve(output);
   const relative = path.relative(root, destination);
   if (relative === '' || (!relative.startsWith(`..${path.sep}`) &&
@@ -33,4 +43,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { buildPlugin };
+module.exports = { buildPlugin, validatePlugin };
