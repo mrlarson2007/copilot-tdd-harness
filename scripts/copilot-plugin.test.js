@@ -159,3 +159,23 @@ test('WhenPluginSourcesAreInvalid_ShouldRejectIncompleteOrEscapingBundles', (t) 
     assert.equal(fs.existsSync(output), false, label);
   }
 });
+
+test('WhenBuildTargetsExistingOrSourceDirectories_ShouldPreserveFilesEvenThroughSymlinkedParents', (t) => {
+  const { buildPlugin } = require('./build-copilot-plugin');
+  const { source, output } = sourceFixture(t);
+  fs.mkdirSync(output);
+  const sentinel = path.join(output, 'keep.txt');
+  fs.writeFileSync(sentinel, 'user content');
+  assert.throws(() => buildPlugin(output, source), /EEXIST/);
+  assert.equal(fs.readFileSync(sentinel, 'utf8'), 'user content');
+
+  const alias = path.join(path.dirname(source), 'alias');
+  fs.symlinkSync(source, alias, 'dir');
+  for (const destination of [
+    path.join(source, '.github', 'unexpected'),
+    path.join(alias, 'unexpected'),
+  ]) {
+    assert.throws(() => buildPlugin(destination, source), /Build outside the source repository/);
+    assert.equal(fs.existsSync(destination), false);
+  }
+});

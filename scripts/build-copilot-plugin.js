@@ -53,8 +53,10 @@ function validatePlugin(root = REPO_ROOT) {
 }
 
 function buildPlugin(output, root = REPO_ROOT) {
+  root = fs.realpathSync(root);
   validatePlugin(root);
-  const destination = path.resolve(output);
+  const requested = path.resolve(output);
+  const destination = path.join(fs.realpathSync(path.dirname(requested)), path.basename(requested));
   const relative = path.relative(root, destination);
   if (relative === '' || (!relative.startsWith(`..${path.sep}`) &&
       !path.isAbsolute(relative) && !relative.startsWith(`dist${path.sep}`))) {
